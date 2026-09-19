@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 // routes/documentRoutes.js
 const express = require('express');
 const router = express.Router();
@@ -61,3 +62,13 @@ router.post('/generate-broadcast', async (req, res) => {
 });
 
 module.exports = router;
+=======
+import express from 'express';
+import { featureNotImplemented } from '../controllers/placeholderController.js';
+
+const router = express.Router();
+
+router.get('/', featureNotImplemented('Document management'));
+
+export default router;
+>>>>>>> main
