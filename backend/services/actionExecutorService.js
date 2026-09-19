@@ -176,29 +176,23 @@ function parseIntentHeuristically(prompt) {
 
   // Generic fallback query
   return {
-    action: 'GENERAL_CHAT',
-    targetEntity: 'None',
-    conversationalResponse: `I received your command: "${text}". I can help assign tasks, update deadlines, track risks, and generate analytics.`
+    reasoning: "Failed to parse a specific command, defaulting to general chat.",
+    actions: [{
+      action: 'GENERAL_CHAT',
+      targetEntity: 'None',
+      conversationalResponse: `I received your command: "${text}". I can help assign tasks, update deadlines, track risks, and generate analytics.`
+    }]
   };
 }
 
-const ACTION_SCHEMA = {
+const SINGLE_ACTION_SCHEMA = {
   type: 'object',
   properties: {
     action: {
       type: 'string',
       enum: [
-        'CREATE_TASK',
-        'UPDATE_TASK',
-        'ASSIGN_TASK',
-        'COMPLETE_TASK',
-        'DELETE_TASK',
-        'CREATE_EVENT',
-        'UPDATE_EVENT',
-        'CREATE_MEETING',
-        'CREATE_RISK',
-        'QUERY_INFO',
-        'GENERAL_CHAT'
+        'CREATE_TASK', 'UPDATE_TASK', 'ASSIGN_TASK', 'COMPLETE_TASK', 'DELETE_TASK',
+        'CREATE_EVENT', 'UPDATE_EVENT', 'CREATE_MEETING', 'CREATE_RISK', 'QUERY_INFO', 'GENERAL_CHAT'
       ],
       description: 'The database action to perform'
     },
@@ -249,10 +243,30 @@ const ACTION_SCHEMA = {
     },
     conversationalResponse: {
       type: 'string',
-      description: 'A friendly, professional confirmation message explaining the database action performed.'
+      description: 'A friendly, professional confirmation message explaining this specific database action.'
     }
   },
   required: ['action', 'targetEntity', 'conversationalResponse']
+};
+
+const ACTION_SCHEMA = {
+  type: 'object',
+  properties: {
+    reasoning: {
+      type: 'string',
+      description: 'The step-by-step reasoning explaining how you are interpreting the user prompt and what actions you will take.'
+    },
+    overallResponse: {
+      type: 'string',
+      description: 'A friendly, combined summary response of all actions performed for the user.'
+    },
+    actions: {
+      type: 'array',
+      items: SINGLE_ACTION_SCHEMA,
+      description: 'A list of distinct actions to execute based on the user prompt.'
+    }
+  },
+  required: ['reasoning', 'overallResponse', 'actions']
 };
 
 /**
@@ -269,17 +283,17 @@ Current System Context:
 - Known Recent Tasks: ${contextInfo.taskTitles || 'Stage setup, Audio visual check, Sponsorship outreach, Catering logistics'}
 
 Rules:
-1. When a user says "Assign [Name] to [Task] and move deadline to [Date]", map action to "ASSIGN_TASK", set assigneeName, targetTaskSearch, and deadline.
-2. When creating a task, extract title, priority (default medium), deadline, status (default todo).
-3. If deadline is mentioned as relative ("tomorrow", "in 2 days", "next Monday"), calculate appropriate ISO date.
-4. Output must strictly conform to the JSON schema.`;
+1. Break down complex requests into multiple discrete actions if necessary.
+2. Output your reasoning first, explaining your interpretation of the user's request.
+3. Map actions to valid action enums (e.g., ASSIGN_TASK, CREATE_TASK).
+4. Output an overall response summarizing everything, and return the array of actions to execute.`;
 
   try {
     const aiResult = await generateStructuredResponse({
       prompt: `User request: "${prompt}"`,
       systemInstruction,
       responseJsonSchema: ACTION_SCHEMA,
-      model: process.env.GEMINI_MODEL || 'gemini-3.6-flash'
+      model: process.env.GEMINI_MODEL || 'gemini-1.5-flash'
     });
     return aiResult;
   } catch (error) {
@@ -311,179 +325,247 @@ export async function executeChatAction({ prompt, eventId, userId }) {
 
   // 2. Parse intent via Gemini
   const parsed = await parseUserIntent(prompt, contextInfo);
-  const action = parsed.action;
-  let affectedRecord = null;
-  let executedActionSummary = {
-    type: action,
-    entity: parsed.targetEntity,
-    status: 'executed',
-    details: parsed
-  };
+  const actionsToExecute = parsed.actions || [parsed];
+  const reasoning = parsed.reasoning || "Executed direct command.";
+  const overallResponse = parsed.overallResponse || parsed.conversationalResponse || "Action executed successfully.";
+
+  const executedActions = [];
+  const affectedRecords = [];
+  let mainActionType = 'GENERAL_CHAT';
 
   // 3. Execute Mongoose Actions
-  switch (action) {
-    case 'ASSIGN_TASK':
-    case 'UPDATE_TASK': {
-      const details = parsed.taskDetails || {};
-      const searchTerm = details.targetTaskSearch || details.title || prompt;
+  for (const actionItem of actionsToExecute) {
+    const action = actionItem.action;
+    mainActionType = action !== 'GENERAL_CHAT' ? action : mainActionType;
+    let affectedRecord = null;
+    let executedActionSummary = {
+      type: action,
+      entity: actionItem.targetEntity,
+      status: 'executed',
+      details: actionItem
+    };
 
-      let task = null;
-      if (activeEvent) {
-        task = await Task.findOne({
-          event: activeEvent._id,
-          title: { $regex: new RegExp(searchTerm.trim(), 'i') }
-        });
-      }
-      if (!task) {
-        task = await Task.findOne({
-          title: { $regex: new RegExp(searchTerm.trim(), 'i') }
-        });
-      }
+    switch (action) {
+      case 'ASSIGN_TASK':
+      case 'UPDATE_TASK': {
+        const details = actionItem.taskDetails || {};
+        const searchTerm = details.targetTaskSearch || details.title || prompt;
 
-      // If task doesn't exist, create it on the fly!
-      if (!task) {
-        task = await Task.create({
-          event: activeEvent._id,
-          title: details.title || searchTerm.trim(),
-          status: details.status || 'todo',
-          priority: details.priority || 'medium',
-          source: 'ai'
-        });
-      }
-
-      if (details.assigneeName) {
-        const user = await resolveUser(details.assigneeName);
-        if (user) {
-          task.owner = user._id;
+        let task = null;
+        if (activeEvent) {
+          task = await Task.findOne({
+            event: activeEvent._id,
+            title: { $regex: new RegExp(searchTerm.trim(), 'i') }
+          });
         }
-      }
+        if (!task) {
+          task = await Task.findOne({
+            title: { $regex: new RegExp(searchTerm.trim(), 'i') }
+          });
+        }
 
-      if (details.deadline) {
-        task.deadline = parseNaturalDate(details.deadline);
-      }
+        if (!task) {
+          task = await Task.create({
+            event: activeEvent._id,
+            title: details.title || searchTerm.trim(),
+            status: details.status || 'todo',
+            priority: details.priority || 'medium',
+            source: 'ai'
+          });
+        }
 
-      if (details.priority) {
-        task.priority = details.priority;
-      }
+        if (details.assigneeName) {
+          const user = await resolveUser(details.assigneeName);
+          if (user) {
+            task.owner = user._id;
+          }
+        }
 
-      if (details.status) {
-        task.status = details.status;
-      }
+        if (details.deadline) {
+          task.deadline = parseNaturalDate(details.deadline);
+        }
 
-      if (details.description) {
-        task.description = details.description;
-      }
+        if (details.priority) {
+          task.priority = details.priority;
+        }
 
-      await task.save();
-      affectedRecord = await Task.findById(task._id).populate('owner', 'name email role').populate('event', 'name');
-      break;
-    }
+        if (details.status) {
+          task.status = details.status;
+        }
 
-    case 'CREATE_TASK': {
-      const details = parsed.taskDetails || {};
-      let ownerId = null;
+        if (details.description) {
+          task.description = details.description;
+        }
 
-      if (details.assigneeName) {
-        const user = await resolveUser(details.assigneeName);
-        ownerId = user?._id;
-      }
-
-      const newTask = await Task.create({
-        event: activeEvent._id,
-        title: details.title || prompt.slice(0, 50),
-        description: details.description || '',
-        owner: ownerId,
-        deadline: parseNaturalDate(details.deadline),
-        priority: details.priority || 'medium',
-        status: details.status || 'todo',
-        source: 'ai'
-      });
-
-      affectedRecord = await Task.findById(newTask._id).populate('owner', 'name email role').populate('event', 'name');
-      break;
-    }
-
-    case 'COMPLETE_TASK': {
-      const details = parsed.taskDetails || {};
-      const searchTerm = details.targetTaskSearch || details.title || prompt;
-
-      let task = await Task.findOne({
-        $or: [
-          { title: { $regex: new RegExp(searchTerm.trim(), 'i') } },
-          ...(activeEvent ? [{ event: activeEvent._id }] : [])
-        ]
-      }).sort({ updatedAt: -1 });
-
-      if (task) {
-        task.status = 'completed';
         await task.save();
         affectedRecord = await Task.findById(task._id).populate('owner', 'name email role').populate('event', 'name');
+        break;
       }
-      break;
-    }
 
-    case 'DELETE_TASK': {
-      const details = parsed.taskDetails || {};
-      const searchTerm = details.targetTaskSearch || details.title;
-      if (searchTerm) {
-        const taskToDelete = await Task.findOne({
-          title: { $regex: new RegExp(searchTerm.trim(), 'i') }
-        });
-        if (taskToDelete) {
-          await Task.findByIdAndDelete(taskToDelete._id);
-          affectedRecord = { _id: taskToDelete._id, title: taskToDelete.title, deleted: true };
+      case 'CREATE_TASK': {
+        const details = actionItem.taskDetails || {};
+        let ownerId = null;
+
+        if (details.assigneeName) {
+          const user = await resolveUser(details.assigneeName);
+          ownerId = user?._id;
         }
+
+        const newTask = await Task.create({
+          event: activeEvent._id,
+          title: details.title || prompt.slice(0, 50),
+          description: details.description || '',
+          owner: ownerId,
+          deadline: parseNaturalDate(details.deadline),
+          priority: details.priority || 'medium',
+          status: details.status || 'todo',
+          source: 'ai'
+        });
+
+        affectedRecord = await Task.findById(newTask._id).populate('owner', 'name email role').populate('event', 'name');
+        break;
       }
-      break;
+
+      case 'COMPLETE_TASK': {
+        const details = actionItem.taskDetails || {};
+        const searchTerm = details.targetTaskSearch || details.title || prompt;
+
+        let task = await Task.findOne({
+          $or: [
+            { title: { $regex: new RegExp(searchTerm.trim(), 'i') } },
+            ...(activeEvent ? [{ event: activeEvent._id }] : [])
+          ]
+        }).sort({ updatedAt: -1 });
+
+        if (task) {
+          task.status = 'completed';
+          await task.save();
+          affectedRecord = await Task.findById(task._id).populate('owner', 'name email role').populate('event', 'name');
+        }
+        break;
+      }
+
+      case 'DELETE_TASK': {
+        const details = actionItem.taskDetails || {};
+        const searchTerm = details.targetTaskSearch || details.title;
+        if (searchTerm) {
+          const taskToDelete = await Task.findOne({
+            title: { $regex: new RegExp(searchTerm.trim(), 'i') }
+          });
+          if (taskToDelete) {
+            await Task.findByIdAndDelete(taskToDelete._id);
+            affectedRecord = { _id: taskToDelete._id, title: taskToDelete.title, deleted: true };
+          }
+        }
+        break;
+      }
+
+      case 'CREATE_EVENT': {
+        const details = actionItem.eventDetails || {};
+        const defaultUser = (await User.findOne()) || (await resolveUser('Club Lead'));
+
+        const newEvent = await Event.create({
+          name: details.name || 'New Event',
+          description: details.description || '',
+          startDate: details.startDate ? new Date(details.startDate) : new Date(),
+          endDate: details.endDate ? new Date(details.endDate) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+          location: details.location || 'Main Auditorium',
+          status: details.status || 'planning',
+          createdBy: defaultUser._id
+        });
+
+        affectedRecord = newEvent;
+        break;
+      }
+
+      case 'CREATE_RISK': {
+        const details = actionItem.riskDetails || {};
+        const newRisk = await Risk.create({
+          event: activeEvent._id,
+          type: details.type || 'deadline',
+          severity: details.severity || 'high',
+          title: details.title || 'AI Identified Risk',
+          description: details.description || prompt,
+          sourceType: 'task',
+          fingerprint: `ai-risk-${Date.now()}`
+        });
+
+        affectedRecord = newRisk;
+        break;
+      }
+
+      case 'CREATE_MEETING': {
+        const details = actionItem.meetingDetails || {};
+        const newMeeting = await Meeting.create({
+          event: activeEvent._id,
+          title: details.title || 'AI Scheduled Meeting',
+          date: details.date ? new Date(details.date) : new Date(Date.now() + 24 * 3600 * 1000),
+          summary: details.summary || '',
+          status: 'scheduled'
+        });
+        affectedRecord = newMeeting;
+        break;
+      }
+
+      case 'QUERY_INFO':
+      case 'GENERAL_CHAT':
+      default: {
+        executedActionSummary.status = 'info';
+        break;
+      }
     }
-
-    case 'CREATE_EVENT': {
-      const details = parsed.eventDetails || {};
-      const defaultUser = (await User.findOne()) || (await resolveUser('Club Lead'));
-
-      const newEvent = await Event.create({
-        name: details.name || 'New Event',
-        description: details.description || '',
-        startDate: details.startDate ? new Date(details.startDate) : new Date(),
-        endDate: details.endDate ? new Date(details.endDate) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        location: details.location || 'Main Auditorium',
-        status: details.status || 'planning',
-        createdBy: defaultUser._id
-      });
-
-      affectedRecord = newEvent;
-      break;
-    }
-
-    case 'CREATE_RISK': {
-      const details = parsed.riskDetails || {};
-      const newRisk = await Risk.create({
-        event: activeEvent._id,
-        type: details.type || 'deadline',
-        severity: details.severity || 'high',
-        title: details.title || 'AI Identified Risk',
-        description: details.description || prompt,
-        sourceType: 'task',
-        fingerprint: `ai-risk-${Date.now()}`
-      });
-
-      affectedRecord = newRisk;
-      break;
-    }
-
-    case 'QUERY_INFO':
-    case 'GENERAL_CHAT':
-    default: {
-      executedActionSummary.status = 'info';
-      break;
-    }
+    
+    executedActions.push(executedActionSummary);
+    if (affectedRecord) affectedRecords.push(affectedRecord);
   }
+
+  // Combine multiple replies or use the overall response
+  const finalReply = `*${reasoning}*\n\n${overallResponse}`;
 
   return {
     success: true,
-    reply: parsed.conversationalResponse || 'Action executed successfully.',
-    action: executedActionSummary,
-    affectedRecord,
+    reply: finalReply,
+    action: { type: mainActionType, executedActions },
+    affectedRecord: affectedRecords.length > 0 ? affectedRecords[0] : null, // keep backward compatibility for now, AiChatAssistant only renders one record but we can fix that later or just leave it.
     timestamp: new Date().toISOString()
   };
+}
+
+export async function executeAiSearch({ query, eventId }) {
+  // RAG-lite: Fetch recent context to answer the question
+  const [tasks, risks, users] = await Promise.all([
+    Task.find().sort({ updatedAt: -1 }).limit(20).populate('owner', 'name'),
+    Risk.find().sort({ updatedAt: -1 }).limit(10),
+    User.find().limit(20).select('name role')
+  ]);
+
+  const contextData = `
+Recent Tasks:
+${tasks.map(t => `- ${t.title} (Status: ${t.status}, Assigned to: ${t.owner?.name || 'Unassigned'})`).join('\n')}
+
+Recent Risks:
+${risks.map(r => `- ${r.title} (Severity: ${r.severity}, Type: ${r.type})`).join('\n')}
+
+Users:
+${users.map(u => `- ${u.name} (${u.role})`).join('\n')}
+  `;
+
+  const systemInstruction = `You are the ClubOps AI Search Assistant. 
+Answer the user's question directly and concisely based ONLY on the provided context data.
+If the answer is not in the data, just say you don't know based on current records.
+Do not format as JSON, just return a conversational string.`;
+
+  try {
+    const { generateStructuredResponse } = await import('./geminiService.js');
+    const result = await generateStructuredResponse({
+      prompt: `Question: "${query}"\n\nContext Data:\n${contextData}`,
+      systemInstruction,
+      responseJsonSchema: { type: 'object', properties: { answer: { type: 'string' } }, required: ['answer'] },
+      model: process.env.GEMINI_MODEL || 'gemini-1.5-flash'
+    });
+    return { success: true, answer: result.answer };
+  } catch (error) {
+    console.error('AI Search failed:', error);
+    return { success: false, answer: "Sorry, I couldn't process that search query." };
+  }
 }

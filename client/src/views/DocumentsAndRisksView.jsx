@@ -3,6 +3,7 @@ import { FolderCard } from '../components/documents/FolderCard'
 import { RecentFilesList } from '../components/documents/RecentFilesList'
 import { DocumentModal } from '../components/documents/DocumentModal'
 import { RiskColumn } from '../components/risks/RiskColumn'
+import { UploadDocumentModal } from '../components/documents/UploadDocumentModal'
 import { dev2Service } from '../services/dev2Service'
 
 const riskColumns = [
@@ -14,6 +15,7 @@ const riskColumns = [
 
 export function DocumentsAndRisksView() {
   const [folders, setFolders] = useState([])
+  const [showUpload, setShowUpload] = useState(false)
   const [recentFiles, setRecentFiles] = useState([])
   const [risks, setRisks] = useState([])
   const [selectedFile, setSelectedFile] = useState(null)
@@ -66,7 +68,16 @@ export function DocumentsAndRisksView() {
     <div className="flex gap-6 h-full">
       <div className="w-[380px] min-w-[340px] flex flex-col gap-6 overflow-y-auto">
         <div>
-          <h2 className="text-lg font-bold text-fg mb-4">📁 Documents</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold text-fg">📁 Documents</h2>
+            <button 
+              onClick={() => setShowUpload(true)}
+              className="px-3 py-1.5 bg-accent text-white text-xs font-semibold rounded-lg hover:bg-accentHover transition-colors flex items-center gap-1"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+              Upload
+            </button>
+          </div>
           <div className="grid grid-cols-2 gap-3">{folders.map((f) => <FolderCard key={f.id} folder={f} />)}</div>
         </div>
         <div>
@@ -90,6 +101,7 @@ export function DocumentsAndRisksView() {
         )}
       </div>
       {selectedFile && <DocumentModal file={selectedFile} onClose={() => setSelectedFile(null)} />}
+      {showUpload && <UploadDocumentModal onClose={() => { setShowUpload(false); loadData(); }} />}
     </div>
   )
 }

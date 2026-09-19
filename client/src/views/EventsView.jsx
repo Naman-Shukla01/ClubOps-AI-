@@ -1,117 +1,107 @@
 import React, { useState, useEffect } from 'react'
+import { dev2Service } from '../services/dev2Service'
 
 export function EventsView({ user }) {
   const [events, setEvents] = useState([])
   const [showCreate, setShowCreate] = useState(false)
   const [newTitle, setNewTitle] = useState('')
   const [newDate, setNewDate] = useState('')
+  const [newDeadline, setNewDeadline] = useState('')
+  
   const [editing, setEditing] = useState(null)
   const [editTitle, setEditTitle] = useState('')
   const [editDate, setEditDate] = useState('')
+  const [editDeadline, setEditDeadline] = useState('')
 
-  const isClubHead = user?.role === 'club-head'
+  // true only if this user created the current active club
+  const isClubHead = user?.isClubLead === true || user?.role === 'EVENT_MANAGER' || user?.role === 'ADMIN'
   const clubId = user?.activeClubId
+
 
   useEffect(() => {
     loadEvents()
   }, [clubId])
 
   const loadEvents = async () => {
-    if (!clubId) {
+    try {
+      const data = await dev2Service.getEvents(clubId || undefined)
+      setEvents(Array.isArray(data) ? data : [])
+    } catch (error) {
+      console.error('Failed to load events:', error)
       setEvents([])
-      return
     }
-
-    const key = `events_${clubId}`
-    const stored = localStorage.getItem(key)
-
-    if (stored) {
-      try {
-        setEvents(JSON.parse(stored))
-      } catch {
-        setEvents([])
-      }
-      return
-    }
-
-    const clubEvents = [
-      {
-        id: `${clubId}-event-1`,
-        title: `${user?.activeClubName || 'Club'} Orientation`,
-        date: '2026-10-05',
-        type: 'upcoming',
-        clubId,
-      },
-      {
-        id: `${clubId}-event-2`,
-        title: `${user?.activeClubName || 'Club'} Planning Meeting`,
-        date: '2026-10-12',
-        type: 'upcoming',
-        clubId,
-      },
-    ]
-
-    setEvents(clubEvents)
-    localStorage.setItem(key, JSON.stringify(clubEvents))
   }
 
-  const saveEventsState = (updated) => {
-    setEvents(updated)
-    localStorage.setItem(
-      `events_${clubId || 'global'}`,
-      JSON.stringify(updated)
-    )
-  }
-
-  const handleCreate = (e) => {
+  const handleCreate = async (e) => {
     e.preventDefault()
 
     if (!newTitle.trim() || !clubId) return
 
-    const updated = [
-      {
-        id: Date.now().toString(),
-        title: newTitle.trim(),
-        date: newDate || new Date().toISOString().split('T')[0],
-        type: 'upcoming',
+    try {
+      await dev2Service.createEvent({
+        name: newTitle.trim(),
+        startDate: newDate || new Date().toISOString(),
+        endDate: newDate || new Date().toISOString(),
+        deadline: newDeadline || null,
         clubId,
-      },
-      ...events,
-    ]
-
-    saveEventsState(updated)
-
-    setNewTitle('')
-    setNewDate('')
-    setShowCreate(false)
+      })
+      
+      setNewTitle('')
+      setNewDate('')
+      setNewDeadline('')
+      setShowCreate(false)
+      loadEvents()
+    } catch (err) {
+      console.error('Failed to create event:', err)
+      alert('Failed to create event.')
+    }
   }
 
   const startEdit = (ev) => {
     setEditing(ev)
-    setEditTitle(ev.title)
-    setEditDate(ev.date)
+    setEditTitle(ev.name || ev.title)
+    setEditDate(ev.startDate ? ev.startDate.split('T')[0] : '')
+    setEditDeadline(ev.deadline ? ev.deadline.split('T')[0] : '')
   }
 
-  const saveEdit = () => {
+  const saveEdit = async () => {
     if (!editing || !editTitle.trim()) return
 
-    const updated = events.map((e) =>
-      e.id === editing.id
-        ? {
-          ...e,
-          title: editTitle.trim(),
-          date: editDate,
-        }
-        : e
-    )
-
-    saveEventsState(updated)
-    setEditing(null)
+    try {
+      await dev2Service.updateEvent(editing.id, {
+        name: editTitle.trim(),
+        startDate: editDate,
+        endDate: editDate,
+        deadline: editDeadline || null
+      })
+      setEditing(null)
+      loadEvents()
+    } catch (err) {
+      console.error('Failed to save event:', err)
+      alert('Failed to save event.')
+    }
   }
 
-  const deleteEvent = (id) => {
-    const updated = events.filter((e) => e.id !== id)
-    saveEventsState(updated)
+  const deleteEvent = async (id) => {
+    try {
+      await dev2Service.deleteEvent(id)
+      loadEvents()
+    } catch (err) {
+      console.error('Failed to delete event:', err)
+    }
+  }
+
+  const renderCountdown = (deadlineStr) => {
+    if (!deadlineStr) return null
+    const msLeft = new Date(deadlineStr) - new Date()
+    const daysLeft = Math.ceil(msLeft / (1000 * 60 * 60 * 24))
+    if (daysLeft < 0) {
+      return <span className="px-2 py-1 text-[10px] rounded-full bg-red/15 text-red font-semibold animate-pulse">OVERDUE</span>
+    } else if (daysLeft <= 3) {
+      return <span className="px-2 py-1 text-[10px] rounded-full bg-yellow/15 text-yellow font-semibold animate-bounce">{daysLeft} days left ⏳</span>
+    } else {
+      return <span className="px-2 py-1 text-[10px] rounded-full bg-green/15 text-green">{daysLeft} days left</span>
+    }
   }
 
   return (
@@ -160,12 +150,21 @@ export function EventsView({ user }) {
                     placeholder="Event name"
                   />
 
-                  <input
-                    type="date"
-                    value={editDate}
-                    onChange={(e) => setEditDate(e.target.value)}
-                    className="bg-surface border border-border rounded-lg px-3 py-2 text-sm text-fg outline-none"
-                  />
+                  <div className="flex gap-2">
+                    <input
+                      type="date"
+                      value={editDate}
+                      onChange={(e) => setEditDate(e.target.value)}
+                      className="flex-1 bg-surface border border-border rounded-lg px-3 py-2 text-sm text-fg outline-none"
+                    />
+                    <input
+                      type="date"
+                      value={editDeadline}
+                      onChange={(e) => setEditDeadline(e.target.value)}
+                      className="flex-1 bg-surface border border-border rounded-lg px-3 py-2 text-sm text-fg outline-none"
+                      placeholder="Deadline (optional)"
+                    />
+                  </div>
 
                   <div className="flex gap-2">
                     <button
@@ -194,19 +193,21 @@ export function EventsView({ user }) {
 
                   <div className="flex-1">
                     <h3 className="font-semibold text-fg">
-                      {ev.title}
+                      {ev.name || ev.title}
                     </h3>
 
                     <p className="text-xs text-muted">
-                      {ev.date
-                        ? new Date(ev.date).toLocaleDateString()
+                      {ev.startDate
+                        ? new Date(ev.startDate).toLocaleDateString()
                         : 'No date'}
                     </p>
                   </div>
 
-                  <span className="px-2 py-1 text-[10px] rounded-full bg-green/15 text-green">
-                    {ev.type}
+                  <span className="px-2 py-1 text-[10px] rounded-full bg-surface text-muted border border-border">
+                    {ev.status || ev.type}
                   </span>
+                  
+                  {renderCountdown(ev.deadline)}
 
                   {isClubHead && (
                     <div className="flex gap-1">
@@ -261,12 +262,28 @@ export function EventsView({ user }) {
                 required
               />
 
-              <input
-                type="date"
-                value={newDate}
-                onChange={(e) => setNewDate(e.target.value)}
-                className="w-full bg-card border border-border rounded-xl px-4 py-2.5 text-sm text-fg outline-none focus:border-accent"
-              />
+              <div className="flex gap-2">
+                <div className="flex-1 space-y-1">
+                  <label className="text-xs text-muted">Event Date</label>
+                  <input
+                    type="date"
+                    value={newDate}
+                    onChange={(e) => setNewDate(e.target.value)}
+                    className="w-full bg-card border border-border rounded-xl px-4 py-2.5 text-sm text-fg outline-none focus:border-accent"
+                    required
+                  />
+                </div>
+                
+                <div className="flex-1 space-y-1">
+                  <label className="text-xs text-muted">Deadline (Optional)</label>
+                  <input
+                    type="date"
+                    value={newDeadline}
+                    onChange={(e) => setNewDeadline(e.target.value)}
+                    className="w-full bg-card border border-border rounded-xl px-4 py-2.5 text-sm text-fg outline-none focus:border-accent"
+                  />
+                </div>
+              </div>
 
               <div className="flex gap-3">
                 <button

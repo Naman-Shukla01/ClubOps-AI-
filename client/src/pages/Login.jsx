@@ -1,6 +1,8 @@
 import React, { useState } from 'react'
 import { Eye, EyeOff, Loader2 } from 'lucide-react'
 
+import { apiRequest } from '../services/api'
+
 export default function Login({ onLogin }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -12,15 +14,37 @@ export default function Login({ onLogin }) {
     e.preventDefault()
     setLoading(true)
     setError('')
-    await new Promise((r) => setTimeout(r, 1000))
-    if (email && password.length >= 6) {
-      const name = email.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
-      const user = { name, role: 'Event Lead', email }
-      localStorage.setItem('user', JSON.stringify(user))
-      if (onLogin) onLogin(user)
-    } else {
-      setError('Enter valid email and password (min 6 chars)')
+    try {
+      let res;
+      try {
+        res = await apiRequest('/auth/login', {
+          method: 'POST',
+          body: JSON.stringify({ email, password })
+        });
+      } catch (loginErr) {
+        if (loginErr.status === 401) {
+          // Auto-register to preserve demo behavior
+          const name = email.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+          res = await apiRequest('/auth/register', {
+            method: 'POST',
+            body: JSON.stringify({ name, email, password })
+          });
+        } else {
+          throw loginErr;
+        }
+      }
+
+      if (res?.token) {
+        localStorage.setItem('accessToken', res.token);
+      }
+      
+      const user = res?.user || { name: email, email };
+      localStorage.setItem('currentUser', JSON.stringify(user));
+      if (onLogin) onLogin(user);
+    } catch (err) {
+      setError(err?.message || 'Invalid email or password (min 8 chars required for new accounts)')
     }
+    setLoading(false)
   };
 
   return (

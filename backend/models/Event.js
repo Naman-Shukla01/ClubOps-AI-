@@ -4,15 +4,9 @@ const eventSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
     description: { type: String, trim: true, default: '' },
-    startDate: {
-      type: Date,
-      default: Date.now,
-      index: true
-    },
-    endDate: {
-      type: Date,
-      default: () => new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-    },
+    startDate: { type: Date, required: true, index: true },
+    endDate: { type: Date, required: true },
+    deadline: { type: Date }, // Manual deadline for tasks/requirements
     location: { type: String, trim: true, default: '' },
     requirements: {
       documents: { type: [String], default: [] },
@@ -24,7 +18,9 @@ const eventSchema = new mongoose.Schema(
       default: 'planning',
       index: true
     },
-    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+    club: { type: mongoose.Schema.Types.ObjectId, ref: 'Club', index: true },
+    volunteers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // Volunteers assigned to this event
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
   },
   { timestamps: true }
 );

@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 
+import { apiRequest } from '../services/api'
+
 export default function Registration({ onRegister }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -18,71 +20,37 @@ export default function Registration({ onRegister }) {
       return;
     }
     try {
-      const existingClubs = JSON.parse(localStorage.getItem("created_clubs") || "[]");
-      const trimmedClub = clubName.trim();
-      let targetClub = null;
-
-      if (trimmedClub) {
-        const found = existingClubs.find(c => c.name.toLowerCase() === trimmedClub.toLowerCase());
-        if (found) {
-          targetClub = found;
-        } else {
-          // Auto create missing club with default details
-          targetClub = {
-            id: String(Date.now()),
-            name: trimmedClub,
-            icon: "🏛️",
-            color: "#7c5cfc",
-            category: "General",
-            head: { name: name.trim(), email: email.trim() },
-            members: 1,
-            maxMembers: 50,
-            events: 0,
-            description: "Newly created club. Click Edit/Manage in Clubs view to update details.",
-            skills: ["Leadership", "Management"],
-            budget: "$0",
-            riskLevel: "Low",
-            location: "TBD",
-            founded: new Date().getFullYear().toString()
-          };
-          const updatedClubs = [targetClub, ...existingClubs];
-          localStorage.setItem("created_clubs", JSON.stringify(updatedClubs));
-        }
-      } else {
-        targetClub = {
-          id: "1",
-          name: "Tech Innovators Club",
-          icon: "💻"
-        };
+      const res = await apiRequest('/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({ name: name.trim(), email: email.trim(), password })
+      });
+      
+      if (res?.token) {
+        localStorage.setItem('accessToken', res.token);
       }
-
-      const initialClubObj = {
-        id: targetClub.id,
-        name: targetClub.name,
-        icon: targetClub.icon || "🏛️"
+      
+      const targetClub = {
+        id: "1",
+        name: clubName.trim() || "Tech Innovators Club",
+        icon: "💻"
       };
 
-      const newUser = {
+      const newUser = res?.user || {
         name: name.trim(),
         email: email.trim(),
-        password,
-        role,
-        activeClubId: initialClubObj.id,
-        activeClubName: initialClubObj.name,
-        activeClubIcon: initialClubObj.icon,
-        joinedClubs: [initialClubObj]
+        role
       };
-
-      // Save user to local user store
-      const existingUsers = JSON.parse(localStorage.getItem("all_users") || "[]");
-      const updatedUsers = [...existingUsers.filter(u => u.email !== email), newUser];
-      localStorage.setItem("all_users", JSON.stringify(updatedUsers));
+      
+      newUser.activeClubId = targetClub.id;
+      newUser.activeClubName = targetClub.name;
+      newUser.activeClubIcon = targetClub.icon;
+      newUser.joinedClubs = [targetClub];
 
       localStorage.setItem("currentUser", JSON.stringify(newUser));
       if (onRegister) onRegister(newUser);
       navigate("/");
     } catch (err) {
-      setError(err.message || "Registration failed.");
+      setError(err.message || "Registration failed. (min 8 chars required for password)");
     }
   };
 
