@@ -3,7 +3,7 @@ import { Upload, Send, FileText } from 'lucide-react'
 import { sampleTranscript } from '../../data/mockData'
 import { dev2Service } from '../../services/dev2Service'
 
-export function TranscriptInput() {
+export function TranscriptInput({ onResult, meetingId }) {
   const [text, setText] = useState(sampleTranscript)
   const [file, setFile] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -12,8 +12,19 @@ export function TranscriptInput() {
   const handleAnalyze = async () => {
     setLoading(true)
     try {
-      const res = await dev2Service.parseTranscript({ meetingId: 1, transcript: text })
-      setResult(res?.summary || 'Analysis complete. Action items extracted.')
+      const res = await dev2Service.parseTranscript({ meetingId, text })
+      const summary = res?.meeting?.summary || res?.summary
+      const tasks = Array.isArray(res?.tasks) ? res.tasks : []
+      const decisions = Array.isArray(res?.meeting?.decisions) ? res.meeting.decisions : []
+      const actionItems = Array.isArray(res?.meeting?.actionItems) ? res.meeting.actionItems : []
+      const details = [
+        summary,
+        tasks.length ? `Tasks: ${tasks.map((task) => `${task.title}${task.owner ? ` (${task.owner})` : ''}${task.deadline ? ` by ${new Date(task.deadline).toLocaleDateString()}` : ''}`).join('; ')}` : '',
+        decisions.length ? `Decisions: ${decisions.join('; ')}` : '',
+        actionItems.length ? `Action items: ${actionItems.join('; ')}` : '',
+      ].filter(Boolean).join('\n\n')
+      setResult(details || 'Analysis complete. Action items extracted.')
+      if (onResult) onResult(tasks)
     } catch {
       setResult('Analysis complete. Action items extracted.')
     }

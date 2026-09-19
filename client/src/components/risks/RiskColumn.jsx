@@ -10,7 +10,7 @@ export function RiskColumn({ title, risks, color }) {
         <span className="text-xs text-muted bg-card px-2 py-0.5 rounded-full">{risks.length}</span>
       </div>
       <div className="space-y-3">
-        {risks.map((risk) => <RiskCard key={risk.id} risk={risk} />)}
+        {risks.map((risk, index) => <RiskCard key={risk.id || risk._id || `${risk.title}-${index}`} risk={risk} />)}
       </div>
     </div>
   )

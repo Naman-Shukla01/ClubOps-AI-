@@ -11,7 +11,7 @@ export function VolunteersView() {
   useEffect(() => { loadVolunteers() }, [])
 
   const loadVolunteers = async () => {
-    try { const res = await dev1Service.getVolunteers(); setVolunteers(res?.data || res || []) } catch { console.error(e) }
+    try { const res = await dev1Service.getVolunteers(); setVolunteers(res?.data || res || []) } catch (error) { console.error(error) }
     setLoading(false)
   }
 

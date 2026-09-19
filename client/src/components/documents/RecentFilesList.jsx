@@ -6,11 +6,11 @@ const typeStyles = {
   XLSX: 'bg-green/10 text-green',
 }
 
-export function RecentFilesList({ files }) {
+export function RecentFilesList({ files, onSelect }) {
   return (
     <div className="space-y-1">
       {files.map((file) => (
-        <div key={file.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-card transition-colors cursor-pointer group">
+        <div key={file.id} onClick={() => onSelect?.(file)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-card transition-colors cursor-pointer group">
           <div className={`w-8 h-8 rounded-lg ${typeStyles[file.type]} flex items-center justify-center text-[10px] font-bold`}>
             {file.type}
           </div>

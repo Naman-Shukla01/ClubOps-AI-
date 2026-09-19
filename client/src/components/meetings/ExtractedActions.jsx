@@ -3,10 +3,15 @@ import { Check, Plus, RefreshCw } from 'lucide-react'
 import { extractedActions as initialActions } from '../../data/mockData'
 import { dev1Service } from '../../services/dev1Service'
 
-export function ExtractedActions() {
-  const [actions, setActions] = useState(initialActions)
+export function ExtractedActions({ actions: providedActions = initialActions }) {
+  const [actions, setActions] = useState(providedActions)
   const [loading, setLoading] = useState(false)
   const [syncedIds, setSyncedIds] = useState(new Set())
+
+  React.useEffect(() => {
+    setActions(providedActions)
+    setSyncedIds(new Set())
+  }, [providedActions])
 
   const handleSync = async () => {
     setLoading(true)

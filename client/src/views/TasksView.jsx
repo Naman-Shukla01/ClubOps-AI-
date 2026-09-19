@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { KanbanBoard } from '../components/tasks/KanbanBoard'
 import { CreateTaskModal } from '../components/tasks/CreateTaskModal'
 import { dev1Service } from '../services/dev1Service'
@@ -22,7 +22,7 @@ export function TasksView({ onTaskCreated }) {
   }, [tasks])
 
   const loadTasks = async () => {
-    try { const res = await dev1Service.getTasks(); setTasks(res?.data || res || []) } catch { console.error(e) }
+    try { const res = await dev1Service.getTasks(); setTasks(res?.data || res || []) } catch (error) { console.error(error) }
     setLoading(false)
   }
 

@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { Send, Sparkles, Loader2, Check, Edit2 } from 'lucide-react'
 import { dev1Service } from '../../services/dev1Service'
+import dev3Service from '../../services/dev3Service'
 
 const examples = [
   'Create a task for finalizing venue contract',
@@ -18,14 +19,13 @@ export default function ActionCopilotBar({ onTaskCreated }) {
   const handleSubmit = async () => {
     if (!command.trim()) return
     setLoading(true)
-    const taskData = { title: command, status: 'todo', priority: 'medium', assignee: '', tags: ['copilot'], dueDate: '' }
     try {
-      const res = await dev1Service.createTask(taskData)
-      const task = res?.data || { ...taskData, id: Date.now() }
+      const res = await dev3Service.sendChatMessage(command)
+      const task = res?.affectedRecord || { title: command, status: 'todo', priority: 'medium', assignee: '', tags: ['copilot'], dueDate: '', id: Date.now() }
       setCreatedTask(task)
       if (onTaskCreated) onTaskCreated(task)
     } catch {
-      const fallback = { ...taskData, id: Date.now() }
+      const fallback = { title: command, status: 'todo', priority: 'medium', assignee: '', tags: ['copilot'], dueDate: '', id: Date.now() }
       setCreatedTask(fallback)
       if (onTaskCreated) onTaskCreated(fallback)
     }
@@ -34,7 +34,7 @@ export default function ActionCopilotBar({ onTaskCreated }) {
 
   const startEdit = () => { setEditForm({ ...createdTask }); setEditing(true) }
   const saveEdit = async () => {
-    try { await dev1Service.updateTask(createdTask.id, editForm) } catch { console.error(e) }
+    try { await dev1Service.updateTask(createdTask.id, editForm) } catch (error) { console.error(error) }
     setCreatedTask({ ...createdTask, ...editForm })
     setEditing(false)
   }

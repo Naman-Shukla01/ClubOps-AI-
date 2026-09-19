@@ -12,9 +12,9 @@ export function DashboardView() {
 
   const loadStats = async () => {
     try {
-      const [tasksRes, risksRes, volRes] = await Promise.all([dev1Service.getTasks(), dev2Service.getRisks(), dev1Service.getVolunteers()])
+      const [eventsRes, tasksRes, risksRes, volRes] = await Promise.all([dev2Service.getEvents(), dev1Service.getTasks(), dev2Service.getRisks(), dev1Service.getVolunteers()])
       setStats({
-        events: 3,
+        events: (eventsRes?.data || eventsRes || []).length,
         tasks: (tasksRes?.data || tasksRes || []).length,
         risks: (risksRes?.data || risksRes || []).length,
         volunteers: (volRes?.data || volRes || []).length,

@@ -1,6 +1,15 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
+import { dev2Service } from '../services/dev2Service'
 
 export function EventsView() {
+  const [milestones, setMilestones] = useState([])
+
+  useEffect(() => {
+    dev2Service.getEvents()
+      .then((events) => setMilestones(events.map((event) => event.name)))
+      .catch(() => setMilestones([]))
+  }, [])
+
   return (
     <div>
       <h2 className="text-2xl font-bold text-fg mb-6">Events</h2>
@@ -8,7 +17,7 @@ export function EventsView() {
         <div className="bg-card border border-border rounded-2xl p-6">
           <h3 className="text-lg font-semibold text-fg mb-4">🗓️ Milestones</h3>
           <div className="space-y-3">
-            {['Venue confirmed', 'Speakers confirmed', 'Marketing launch', 'Registration opens', 'Event day'].map((m, i) => (
+            {(milestones.length ? milestones : ['Venue confirmed', 'Speakers confirmed', 'Marketing launch', 'Registration opens', 'Event day']).map((m, i) => (
               <div key={m} className="flex items-center gap-3">
                 <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${i < 3 ? 'bg-green text-black' : 'bg-border text-muted'}`}>{i < 3 ? '✓' : i + 1}</div>
                 <span className={`text-sm ${i < 3 ? 'text-fg' : 'text-muted'}`}>{m}</span>

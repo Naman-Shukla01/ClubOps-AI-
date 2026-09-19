@@ -6,21 +6,57 @@ import { dev2Service } from '../services/dev2Service'
 
 export function AnnouncementsView() {
   const [announcements, setAnnouncements] = useState(initialAnnouncements)
+  const [events, setEvents] = useState([])
   const [selectedId, setSelectedId] = useState(initialAnnouncements[0]?.id || null)
   const [showForm, setShowForm] = useState(false)
   const [newTitle, setNewTitle] = useState('')
   const [newContent, setNewContent] = useState('')
   const [channels, setChannels] = useState(['WhatsApp'])
+  const [announcementLoading, setAnnouncementLoading] = useState(false)
+  const [announcementError, setAnnouncementError] = useState('')
+
+  React.useEffect(() => {
+    dev2Service.getEvents().then(setEvents).catch(() => setEvents([]))
+  }, [])
 
   const handleCreate = async () => {
     if (!newTitle.trim()) return
+    setAnnouncementLoading(true)
+    setAnnouncementError('')
     const newAnn = { id: Date.now(), title: newTitle, content: newContent, channels, status: 'draft' }
     setAnnouncements((p) => [newAnn, ...p])
     setSelectedId(newAnn.id)
     setNewTitle('')
     setNewContent('')
     setShowForm(false)
-    try { await dev2Service.createRisk({ title: newTitle, category: 'Announcement', severity: 'low', mitigation: newContent }) } catch { }
+    try {
+      const channel = channels.includes('WhatsApp') ? 'whatsapp' : 'telegram'
+      if (!events[0]?.id) throw new Error('Create an event before generating an announcement.')
+      const response = await dev2Service.generateAnnouncement({
+        eventId: events[0]?.id,
+        type: 'general',
+        title: newTitle,
+        details: newContent,
+        channel,
+      })
+      const generated = response?.announcement
+      if (generated) {
+        const generatedAnnouncement = {
+          id: Date.now(),
+          title: generated.title,
+          content: generated.message,
+          channels: [channel === 'whatsapp' ? 'WhatsApp' : 'Telegram'],
+          status: 'draft',
+        }
+        setAnnouncements((previous) => [generatedAnnouncement, ...previous.filter((announcement) => announcement.id !== newAnn.id)])
+        setSelectedId(generatedAnnouncement.id)
+      }
+    } catch (error) {
+      console.error('Failed to generate announcement:', error)
+      setAnnouncementError(error.message || 'Unable to generate announcement.')
+    } finally {
+      setAnnouncementLoading(false)
+    }
   }
 
   return (
@@ -36,11 +72,12 @@ export function AnnouncementsView() {
           <input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Announcement title" className="w-full bg-surface border border-border rounded-xl px-4 py-2.5 text-sm text-fg outline-none focus:border-accent mb-3" />
           <textarea value={newContent} onChange={(e) => setNewContent(e.target.value)} placeholder="Content..." rows={3} className="w-full bg-surface border border-border rounded-xl px-4 py-2.5 text-sm text-fg outline-none focus:border-accent mb-3 resize-none" />
           <div className="flex items-center gap-3">
-            {['WhatsApp', 'Discord', 'Email'].map((ch) => (
+            {['WhatsApp', 'Telegram'].map((ch) => (
               <button key={ch} onClick={() => setChannels((p) => p.includes(ch) ? p.filter((c) => c !== ch) : [...p, ch])} className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${channels.includes(ch) ? 'bg-accent/15 text-accent' : 'bg-surface text-muted'}`}>{ch}</button>
             ))}
-            <button onClick={handleCreate} className="bg-green hover:bg-green/80 text-black px-4 py-1.5 rounded-lg text-xs font-semibold">Create & Save</button>
+            <button onClick={handleCreate} disabled={announcementLoading} className="bg-green hover:bg-green/80 disabled:opacity-50 text-black px-4 py-1.5 rounded-lg text-xs font-semibold">{announcementLoading ? 'Generating...' : 'Create & Save'}</button>
           </div>
+          {announcementError && <p className="mt-3 text-xs text-red" role="alert">{announcementError}</p>}
         </div>
       )}
       <div className="flex gap-6">

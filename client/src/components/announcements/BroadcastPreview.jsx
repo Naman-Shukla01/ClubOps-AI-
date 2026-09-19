@@ -1,16 +1,22 @@
-import React, { useState } from 'react'
-import { Copy, Check, MessageCircle, Mail, Send as SendIcon } from 'lucide-react'
+import React, { useEffect, useState } from 'react'
+import { Copy, Check, MessageCircle, Send as SendIcon } from 'lucide-react'
 
 const channelFormats = {
   WhatsApp: (c) => `🔔 *Announcement*\n\n${c}\n\n📍 EventHub Team`,
   Discord: (c) => `📢 **Announcement**\n\n${c}\n\n— EventHub Team`,
   Email: (c) => `Subject: Event Update\n\n${c}\n\n— EventHub Team`,
+  Telegram: (c) => `📢 ${c}\n\n— EventHub Team`,
 }
-const channelIcons = { WhatsApp: MessageCircle, Discord: SendIcon, Email: Mail }
+const channelIcons = { WhatsApp: MessageCircle, Telegram: SendIcon }
 
 export default function BroadcastPreview({ announcement }) {
-  const [channels, setChannels] = useState(announcement?.channels || ['WhatsApp', 'Discord'])
+  const [channels, setChannels] = useState(announcement?.channels || ['WhatsApp'])
   const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    setChannels(announcement?.channels || ['WhatsApp'])
+    setCopied(false)
+  }, [announcement])
 
   if (!announcement) return <div className="bg-surface border border-border rounded-2xl p-6 text-center"><p className="text-sm text-muted">Select an announcement</p></div>
 
@@ -27,7 +33,7 @@ export default function BroadcastPreview({ announcement }) {
           <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${announcement.status === 'scheduled' ? 'bg-yellow/15 text-yellow' : announcement.status === 'sent' ? 'bg-green/15 text-green' : 'bg-accent/15 text-accent'}`}>{announcement.status.toUpperCase()}</span>
         </div>
         <div className="flex items-center gap-2">
-          {['WhatsApp', 'Discord', 'Email'].map((ch) => {
+          {['WhatsApp', 'Telegram'].map((ch) => {
             const Icon = channelIcons[ch]
             const active = channels.includes(ch)
             return (

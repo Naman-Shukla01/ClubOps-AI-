@@ -3,17 +3,19 @@ import { FolderCard } from '../components/documents/FolderCard'
 import { RecentFilesList } from '../components/documents/RecentFilesList'
 import { DocumentModal } from '../components/documents/DocumentModal'
 import { RiskColumn } from '../components/risks/RiskColumn'
-import { folders, recentFiles, risks as mockRisks } from '../data/mockData'
 import { dev2Service } from '../services/dev2Service'
 
 const riskColumns = [
+  { title: 'Critical Risks', sev: 'critical', color: '#ef4444' },
   { title: 'High Risks', sev: 'high', color: '#f87171' },
   { title: 'Medium Risks', sev: 'medium', color: '#fbbf24' },
   { title: 'Low Risks', sev: 'low', color: '#34d399' },
 ]
 
 export function DocumentsAndRisksView() {
-  const [risks, setRisks] = useState(mockRisks)
+  const [folders, setFolders] = useState([])
+  const [recentFiles, setRecentFiles] = useState([])
+  const [risks, setRisks] = useState([])
   const [selectedFile, setSelectedFile] = useState(null)
   const [loading, setLoading] = useState(true)
 
@@ -24,9 +26,39 @@ export function DocumentsAndRisksView() {
   const loadData = async () => {
     setLoading(true)
     try {
-      const res = await dev2Service.getRisks()
-      if (res?.data) setRisks(res.data)
-    } catch { setRisks(mockRisks) }
+      const [documents, events] = await Promise.all([
+        dev2Service.getDocuments(),
+        dev2Service.getEvents(),
+      ])
+
+      const nextFolders = Array.from(new Set(documents.map((document) => document.type || 'PDF'))).map((type, index) => ({
+        id: index + 1,
+        name: type.toUpperCase(),
+        icon: type === 'PDF' ? '📄' : type === 'DOCX' ? '📝' : '📊',
+        count: documents.filter((document) => (document.type || 'PDF') === type).length,
+        color: type === 'PDF' ? '#7c5cfc' : type === 'DOCX' ? '#60a5fa' : '#34d399',
+      }))
+      const nextRecentFiles = documents.map((document, index) => ({
+        id: document.id || index + 1,
+        name: document.title || `Document ${index + 1}`,
+        type: (document.type || 'PDF').toUpperCase(),
+        modified: document.updatedAt ? new Date(document.updatedAt).toLocaleDateString() : 'Recently',
+        size: 'N/A',
+      }))
+
+      setFolders(nextFolders)
+      setRecentFiles(nextRecentFiles)
+
+      if (events[0]?.id) {
+        const scan = await dev2Service.analyzeRisks({ eventId: events[0].id })
+        setRisks(Array.isArray(scan?.risks) ? scan.risks : [])
+      }
+    } catch (error) {
+      console.error('Failed to load documents and risks:', error)
+      setFolders([])
+      setRecentFiles([])
+      setRisks([])
+    }
     setLoading(false)
   }
 
@@ -40,7 +72,7 @@ export function DocumentsAndRisksView() {
         <div>
           <h2 className="text-lg font-bold text-fg mb-4">📄 Recent Files</h2>
           <div className="bg-surface border border-border rounded-2xl p-2">
-            <RecentFilesList files={recentFiles} />
+            <RecentFilesList files={recentFiles} onSelect={setSelectedFile} />
           </div>
         </div>
       </div>
