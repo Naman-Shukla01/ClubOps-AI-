@@ -34,6 +34,13 @@ app.get('/', (req, res) => {
 const aiRoutes = require('./routes/aiRoutes');
 app.use('/api/meetings', aiRoutes);
 
+
+// Add this import near your other routes in server.js
+const documentRoutes = require('./routes/documentRoutes');
+
+// Mount the route
+app.use('/api/documents', documentRoutes);
+
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
