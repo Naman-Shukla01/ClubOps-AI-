@@ -4,8 +4,15 @@ const eventSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
     description: { type: String, trim: true, default: '' },
-    startDate: { type: Date, required: true, index: true },
-    endDate: { type: Date, required: true },
+    startDate: {
+      type: Date,
+      default: Date.now,
+      index: true
+    },
+    endDate: {
+      type: Date,
+      default: () => new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+    },
     location: { type: String, trim: true, default: '' },
     requirements: {
       documents: { type: [String], default: [] },
@@ -17,7 +24,7 @@ const eventSchema = new mongoose.Schema(
       default: 'planning',
       index: true
     },
-    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
   },
   { timestamps: true }
 );
