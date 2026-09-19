@@ -26,7 +26,11 @@ export function EventsView({ user }) {
     const stored = localStorage.getItem(key)
 
     if (stored) {
-      setEvents(JSON.parse(stored))
+      try {
+        setEvents(JSON.parse(stored))
+      } catch {
+        setEvents([])
+      }
       return
     }
 
@@ -76,6 +80,7 @@ export function EventsView({ user }) {
     ]
 
     saveEventsState(updated)
+
     setNewTitle('')
     setNewDate('')
     setShowCreate(false)
@@ -116,6 +121,7 @@ export function EventsView({ user }) {
           <h2 className="text-2xl font-bold text-fg">
             {user?.activeClubId ? 'Club Events' : 'Events'}
           </h2>
+
           <p className="text-muted text-sm">
             {user?.activeClubName
               ? user.activeClubName + ' events'
@@ -153,12 +159,14 @@ export function EventsView({ user }) {
                     className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-fg outline-none"
                     placeholder="Event name"
                   />
+
                   <input
                     type="date"
                     value={editDate}
                     onChange={(e) => setEditDate(e.target.value)}
                     className="bg-surface border border-border rounded-lg px-3 py-2 text-sm text-fg outline-none"
                   />
+
                   <div className="flex gap-2">
                     <button
                       onClick={saveEdit}
@@ -166,6 +174,7 @@ export function EventsView({ user }) {
                     >
                       Save
                     </button>
+
                     <button
                       onClick={() => setEditing(null)}
                       className="bg-card border border-border text-muted px-3 py-1.5 rounded-lg text-xs"
@@ -182,14 +191,19 @@ export function EventsView({ user }) {
                   >
                     📅
                   </div>
+
                   <div className="flex-1">
-                    <h3 className="font-semibold text-fg">{ev.title}</h3>
+                    <h3 className="font-semibold text-fg">
+                      {ev.title}
+                    </h3>
+
                     <p className="text-xs text-muted">
                       {ev.date
                         ? new Date(ev.date).toLocaleDateString()
                         : 'No date'}
                     </p>
                   </div>
+
                   <span className="px-2 py-1 text-[10px] rounded-full bg-green/15 text-green">
                     {ev.type}
                   </span>
@@ -202,6 +216,7 @@ export function EventsView({ user }) {
                       >
                         Edit
                       </button>
+
                       <button
                         onClick={() => deleteEvent(ev.id)}
                         className="px-2 py-1 bg-red/10 text-red rounded text-[10px]"
@@ -228,6 +243,7 @@ export function EventsView({ user }) {
           >
             <div className="flex items-center justify-between p-5 border-b border-border">
               <h3 className="font-semibold text-fg">Create Event</h3>
+
               <button
                 onClick={() => setShowCreate(false)}
                 className="p-1.5 hover:bg-card rounded-lg"
@@ -244,6 +260,7 @@ export function EventsView({ user }) {
                 placeholder="Event name"
                 required
               />
+
               <input
                 type="date"
                 value={newDate}
@@ -260,6 +277,7 @@ export function EventsView({ user }) {
                 >
                   Cancel
                 </button>
+
                 <button
                   type="submit"
                   className="flex-1 py-2 rounded-lg text-white text-sm font-medium"

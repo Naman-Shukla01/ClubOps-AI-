@@ -1,4 +1,4 @@
-import { api, apiRequest } from './api.js'
+import { apiRequest } from './api.js'
 
 /**
  * Developer 3: Conversational Actions & Dashboard Analytics Service
@@ -46,19 +46,10 @@ export async function executeAction(command, context = {}) {
   })
 }
 
-export const createActionFromMeeting = (data) => api.post('/actions/from-meeting', data)
-export const updateTaskStatus = (id, status) => api.patch(`/actions/${id}/status`, { status })
-export const getTaskStats = () => api.get('/analytics/task-stats')
-export const getRiskSummary = () => api.get('/analytics/risk-summary')
-
 export const dev3Service = {
   sendChatMessage,
   getHealthAnalytics,
   executeAction,
-  createActionFromMeeting,
-  updateTaskStatus,
-  getTaskStats,
-  getRiskSummary,
 }
 
 export default dev3Service

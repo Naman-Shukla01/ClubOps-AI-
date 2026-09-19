@@ -25,6 +25,10 @@ export function DashboardView({ user, setActiveTab }) {
 
         if (res?.data?.id) {
           setActiveClub(res.data)
+        } else if (res?.id) {
+          setActiveClub(res)
+        } else {
+          setActiveClub(null)
         }
       } catch {
         setActiveClub(null)
@@ -47,22 +51,40 @@ export function DashboardView({ user, setActiveTab }) {
 
       const clubId = user.activeClubId
 
-      const tasks = JSON.parse(
-        localStorage.getItem(`tasks_${clubId}`) || '[]'
-      )
+      let tasks = []
+      let events = []
+      let volunteers = []
 
-      const events = JSON.parse(
-        localStorage.getItem(`events_${clubId}`) || '[]'
-      )
+      try {
+        tasks = JSON.parse(
+          localStorage.getItem(`tasks_${clubId}`) || '[]'
+        )
+      } catch {
+        tasks = []
+      }
 
-      const volunteers = JSON.parse(
-        localStorage.getItem(`volunteers_${clubId}`) || '[]'
-      )
+      try {
+        events = JSON.parse(
+          localStorage.getItem(`events_${clubId}`) || '[]'
+        )
+      } catch {
+        events = []
+      }
+
+      try {
+        volunteers = JSON.parse(
+          localStorage.getItem(`volunteers_${clubId}`) || '[]'
+        )
+      } catch {
+        volunteers = []
+      }
 
       setStats({
-        tasks: tasks.length,
-        events: events.length,
-        volunteers: volunteers.length,
+        tasks: Array.isArray(tasks) ? tasks.length : 0,
+        events: Array.isArray(events) ? events.length : 0,
+        volunteers: Array.isArray(volunteers)
+          ? volunteers.length
+          : 0,
       })
     }
 
@@ -91,7 +113,8 @@ export function DashboardView({ user, setActiveTab }) {
             </h2>
 
             <p className="text-muted text-sm">
-              {isClubHead ? 'Club Head' : 'Member'} · {user?.activeClubName}
+              {isClubHead ? 'Club Head' : 'Member'} ·{' '}
+              {user?.activeClubName}
             </p>
           </div>
 
@@ -123,21 +146,30 @@ export function DashboardView({ user, setActiveTab }) {
 
         <div className="grid grid-cols-3 gap-4">
           <div className="bg-card border border-border rounded-2xl p-5">
-            <p className="text-xs text-muted mb-1">Members</p>
+            <p className="text-xs text-muted mb-1">
+              Members
+            </p>
+
             <span className="text-3xl font-bold text-fg">
               {activeClub.members || 0}
             </span>
           </div>
 
           <div className="bg-card border border-border rounded-2xl p-5">
-            <p className="text-xs text-muted mb-1">Tasks</p>
+            <p className="text-xs text-muted mb-1">
+              Tasks
+            </p>
+
             <span className="text-3xl font-bold text-fg">
               {stats.tasks}
             </span>
           </div>
 
           <div className="bg-card border border-border rounded-2xl p-5">
-            <p className="text-xs text-muted mb-1">Events</p>
+            <p className="text-xs text-muted mb-1">
+              Events
+            </p>
+
             <span className="text-3xl font-bold text-fg">
               {stats.events || activeClub.events || 0}
             </span>
@@ -145,7 +177,9 @@ export function DashboardView({ user, setActiveTab }) {
         </div>
 
         <div className="bg-card border border-border rounded-2xl p-5">
-          <h3 className="font-semibold text-fg mb-3">Quick Actions</h3>
+          <h3 className="font-semibold text-fg mb-3">
+            Quick Actions
+          </h3>
 
           <div className="flex gap-3">
             {isClubHead ? (
@@ -199,7 +233,9 @@ export function DashboardView({ user, setActiveTab }) {
         </div>
 
         <div className="bg-card border border-border rounded-2xl p-5">
-          <h3 className="font-semibold text-fg mb-2">Club Info</h3>
+          <h3 className="font-semibold text-fg mb-2">
+            Club Info
+          </h3>
 
           <p className="text-sm text-muted">
             {activeClub.description || 'No description'}
@@ -213,7 +249,8 @@ export function DashboardView({ user, setActiveTab }) {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-fg">
-          Welcome back, {user?.name?.split(' ')[0] || 'Guest'}
+          Welcome back,{' '}
+          {user?.name?.split(' ')[0] || 'Guest'}
         </h2>
 
         <p className="text-muted text-sm">
@@ -225,16 +262,38 @@ export function DashboardView({ user, setActiveTab }) {
 
       <div className="grid grid-cols-4 gap-4">
         {[
-          { label: 'Events', value: 0, change: '+0', positive: true },
-          { label: 'Tasks', value: 0, change: '+0', positive: true },
-          { label: 'Risks', value: 0, change: '0', positive: false },
-          { label: 'Volunteers', value: 0, change: '+0', positive: true },
+          {
+            label: 'Events',
+            value: 0,
+            change: '+0',
+            positive: true,
+          },
+          {
+            label: 'Tasks',
+            value: 0,
+            change: '+0',
+            positive: true,
+          },
+          {
+            label: 'Risks',
+            value: 0,
+            change: '0',
+            positive: false,
+          },
+          {
+            label: 'Volunteers',
+            value: 0,
+            change: '+0',
+            positive: true,
+          },
         ].map((s) => (
           <div
             key={s.label}
             className="bg-card border border-border rounded-2xl p-5"
           >
-            <p className="text-xs text-muted mb-1">{s.label}</p>
+            <p className="text-xs text-muted mb-1">
+              {s.label}
+            </p>
 
             <div className="flex items-end justify-between">
               <span className="text-3xl font-bold text-fg">
@@ -242,7 +301,9 @@ export function DashboardView({ user, setActiveTab }) {
               </span>
 
               <span
-                className={`text-xs font-semibold ${s.positive ? 'text-green' : 'text-red'
+                className={`text-xs font-semibold ${s.positive
+                  ? 'text-green'
+                  : 'text-red'
                   }`}
               >
                 {s.change}
@@ -254,6 +315,7 @@ export function DashboardView({ user, setActiveTab }) {
 
       <div className="bg-card border border-border rounded-2xl p-5 text-center">
         <span className="text-4xl">🏠</span>
+
         <p className="text-muted mt-2">
           Join a club to get started
         </p>

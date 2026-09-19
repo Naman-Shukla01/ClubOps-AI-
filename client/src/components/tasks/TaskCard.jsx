@@ -18,14 +18,14 @@ export function TaskCard({ task }) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           <div className="w-5 h-5 rounded-full bg-accent/20 flex items-center justify-center text-[9px] font-bold text-accent">
-            {task.assignee.split(' ').map((n) => n[0]).join('')}
+            {(task.assignee || 'Unassigned').split(' ').map((n) => n[0]).join('')}
           </div>
           <span className="text-[11px] text-muted">{task.assignee}</span>
         </div>
         <span className="text-[10px] text-muted">📅 {task.dueDate}</span>
       </div>
       <div className="flex gap-1 mt-2">
-        {task.tags.map((tag) => (
+        {(task.tags || []).map((tag) => (
           <span key={tag} className="text-[9px] bg-surface text-muted px-1.5 py-0.5 rounded">{tag}</span>
         ))}
       </div>

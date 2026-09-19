@@ -36,7 +36,13 @@ export function TasksView({ user }) {
     const stored = localStorage.getItem(key)
 
     if (stored) {
-      setTasks(JSON.parse(stored))
+      try {
+        setTasks(JSON.parse(stored))
+      } catch {
+        localStorage.removeItem(key)
+        setTasks([])
+      }
+
       setLoading(false)
       return
     }
@@ -103,6 +109,18 @@ export function TasksView({ user }) {
   }
 
   const handleStatusChange = (task, nextStatus) => {
+    // Club heads can update any task.
+    // Regular members can update only their own assigned tasks.
+    const canUpdateStatus =
+      isClubHead ||
+      (
+        task.assignee &&
+        user?.name &&
+        task.assignee.toLowerCase().trim() === user.name.toLowerCase().trim()
+      )
+
+    if (!canUpdateStatus) return
+
     let updateNote = ''
 
     if (nextStatus === 'completed') {
@@ -110,6 +128,7 @@ export function TasksView({ user }) {
         'Add work completion note (optional):',
         'Task completed successfully!'
       )
+
       if (inputNote !== null) {
         updateNote = inputNote
       }
@@ -118,6 +137,7 @@ export function TasksView({ user }) {
     const updated = tasks.map((t) => {
       if (t.id === task.id) {
         const notes = [...(t.updates || [])]
+
         if (updateNote) {
           notes.push({
             text: updateNote,
@@ -125,8 +145,14 @@ export function TasksView({ user }) {
             at: new Date().toLocaleTimeString(),
           })
         }
-        return { ...t, status: nextStatus, updates: notes }
+
+        return {
+          ...t,
+          status: nextStatus,
+          updates: notes,
+        }
       }
+
       return t
     })
 
@@ -134,6 +160,8 @@ export function TasksView({ user }) {
   }
 
   const startEdit = (task) => {
+    if (!isClubHead) return
+
     setEditing(task)
     setEditTitle(task.title)
     setEditStatus(task.status)
@@ -141,7 +169,7 @@ export function TasksView({ user }) {
   }
 
   const saveEdit = () => {
-    if (!editing || !editTitle.trim()) return
+    if (!editing || !editTitle.trim() || !isClubHead) return
 
     const updated = tasks.map((t) =>
       t.id === editing.id
@@ -159,11 +187,15 @@ export function TasksView({ user }) {
   }
 
   const deleteTask = (taskId) => {
+    if (!isClubHead) return
+
     saveTasksState(tasks.filter((t) => t.id !== taskId))
   }
 
   const allFiltered =
-    filter === 'all' ? tasks : tasks.filter((t) => t.status === filter)
+    filter === 'all'
+      ? tasks
+      : tasks.filter((t) => t.status === filter)
 
   const myTasks = allFiltered.filter(
     (t) =>
@@ -193,125 +225,152 @@ export function TasksView({ user }) {
     completed: 'bg-green/15 text-green',
   }
 
-  const renderTask = (task) => (
-    <div
-      key={task.id}
-      className="bg-card border border-border rounded-xl p-4 space-y-2"
-    >
-      {editing?.id === task.id ? (
-        <div className="space-y-2">
-          <input
-            value={editTitle}
-            onChange={(e) => setEditTitle(e.target.value)}
-            className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-fg outline-none focus:border-accent"
-            placeholder="Task title"
-          />
-          <div className="flex gap-2">
-            <select
-              value={editStatus}
-              onChange={(e) => setEditStatus(e.target.value)}
-              className="bg-surface border border-border rounded-lg px-3 py-2 text-xs text-fg"
-            >
-              <option value="todo">Todo</option>
-              <option value="in-progress">In Progress</option>
-              <option value="completed">Completed</option>
-            </select>
-            <input
-              value={editAssignee}
-              onChange={(e) => setEditAssignee(e.target.value)}
-              className="flex-1 bg-surface border border-border rounded-lg px-3 py-2 text-xs text-fg outline-none"
-              placeholder="Assignee"
-            />
-            <button
-              onClick={saveEdit}
-              className="bg-accent text-white px-3 py-2 rounded-lg text-xs"
-            >
-              ✓ Save
-            </button>
-            <button
-              onClick={() => setEditing(null)}
-              className="bg-card border border-border text-muted px-3 py-2 rounded-lg text-xs"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      ) : (
-        <>
-          <div className="flex items-center gap-3">
-            <span
-              className={`px-2 py-0.5 text-[10px] rounded-full ${priorityColors[task.priority] || 'bg-muted/15 text-muted'}`}
-            >
-              {task.priority || 'medium'}
-            </span>
-            <span
-              className={`px-2 py-0.5 text-[10px] rounded-full ${statusColors[task.status] || 'bg-muted/15 text-muted'}`}
-            >
-              {task.status || 'todo'}
-            </span>
-            <span className="flex-1 text-sm text-fg font-medium">
-              {task.title}
-            </span>
-            <span className="text-xs text-muted">
-              👤 {task.assignee || 'Unassigned'}
-            </span>
+  const renderTask = (task) => {
+    const isMyTask =
+      task.assignee &&
+      user?.name &&
+      task.assignee.toLowerCase().trim() === user.name.toLowerCase().trim()
 
-            <div className="flex gap-1">
-              {isClubHead && (
-                <>
-                  <button
-                    onClick={() => startEdit(task)}
-                    className="px-2 py-1 bg-surface text-muted hover:text-fg rounded text-[10px]"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => deleteTask(task.id)}
-                    className="px-2 py-1 bg-red/10 text-red rounded text-[10px]"
-                  >
-                    Del
-                  </button>
-                </>
-              )}
+    const canUpdateStatus = isClubHead || isMyTask
+
+    return (
+      <div
+        key={task.id}
+        className="bg-card border border-border rounded-xl p-4 space-y-2"
+      >
+        {editing?.id === task.id ? (
+          <div className="space-y-2">
+            <input
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-fg outline-none focus:border-accent"
+              placeholder="Task title"
+            />
+
+            <div className="flex gap-2">
+              <select
+                value={editStatus}
+                onChange={(e) => setEditStatus(e.target.value)}
+                className="bg-surface border border-border rounded-lg px-3 py-2 text-xs text-fg"
+              >
+                <option value="todo">Todo</option>
+                <option value="in-progress">In Progress</option>
+                <option value="completed">Completed</option>
+              </select>
+
+              <input
+                value={editAssignee}
+                onChange={(e) => setEditAssignee(e.target.value)}
+                className="flex-1 bg-surface border border-border rounded-lg px-3 py-2 text-xs text-fg outline-none"
+                placeholder="Assignee"
+              />
 
               <button
-                onClick={() =>
-                  handleStatusChange(
-                    task,
-                    task.status === 'todo'
-                      ? 'in-progress'
-                      : task.status === 'in-progress'
-                        ? 'completed'
-                        : 'todo'
-                  )
-                }
-                className="px-2.5 py-1 bg-accent/20 text-accent font-medium rounded text-[10px] hover:bg-accent/30 transition-colors"
+                onClick={saveEdit}
+                className="bg-accent text-white px-3 py-2 rounded-lg text-xs"
               >
-                {task.status === 'todo'
-                  ? 'Start Task'
-                  : task.status === 'in-progress'
-                    ? 'Mark Done'
-                    : 'Reopen'}
+                ✓ Save
+              </button>
+
+              <button
+                onClick={() => setEditing(null)}
+                className="bg-card border border-border text-muted px-3 py-2 rounded-lg text-xs"
+              >
+                Cancel
               </button>
             </div>
           </div>
+        ) : (
+          <>
+            <div className="flex items-center gap-3">
+              <span
+                className={`px-2 py-0.5 text-[10px] rounded-full ${priorityColors[task.priority] ||
+                  'bg-muted/15 text-muted'
+                  }`}
+              >
+                {task.priority || 'medium'}
+              </span>
 
-          {task.updates && task.updates.length > 0 && (
-            <div className="pl-4 border-l-2 border-accent/40 space-y-1 mt-2">
-              {task.updates.map((u, idx) => (
-                <p key={idx} className="text-xs text-muted">
-                  💬{' '}
-                  <span className="font-semibold text-fg">{u.by}</span>
-                  : {u.text}{' '}
-                  <span className="text-[10px]">({u.at})</span>
-                </p>
-              ))}
+              <span
+                className={`px-2 py-0.5 text-[10px] rounded-full ${statusColors[task.status] ||
+                  'bg-muted/15 text-muted'
+                  }`}
+              >
+                {task.status || 'todo'}
+              </span>
+
+              <span className="flex-1 text-sm text-fg font-medium">
+                {task.title}
+              </span>
+
+              <span className="text-xs text-muted">
+                👤 {task.assignee || 'Unassigned'}
+              </span>
+
+              <div className="flex gap-1">
+                {isClubHead && (
+                  <>
+                    <button
+                      onClick={() => startEdit(task)}
+                      className="px-2 py-1 bg-surface text-muted hover:text-fg rounded text-[10px]"
+                    >
+                      Edit
+                    </button>
+
+                    <button
+                      onClick={() => deleteTask(task.id)}
+                      className="px-2 py-1 bg-red/10 text-red rounded text-[10px]"
+                    >
+                      Del
+                    </button>
+                  </>
+                )}
+
+                {canUpdateStatus && (
+                  <button
+                    onClick={() =>
+                      handleStatusChange(
+                        task,
+                        task.status === 'todo'
+                          ? 'in-progress'
+                          : task.status === 'in-progress'
+                            ? 'completed'
+                            : 'todo'
+                      )
+                    }
+                    className="px-2.5 py-1 bg-accent/20 text-accent font-medium rounded text-[10px] hover:bg-accent/30 transition-colors"
+                  >
+                    {task.status === 'todo'
+                      ? 'Start Task'
+                      : task.status === 'in-progress'
+                        ? 'Mark Done'
+                        : 'Reopen'}
+                  </button>
+                )}
+              </div>
             </div>
-          )}
-        </>
-      )}
-    </div>
-  )
+
+            {task.updates && task.updates.length > 0 && (
+              <div className="pl-4 border-l-2 border-accent/40 space-y-1 mt-2">
+                {task.updates.map((u, idx) => (
+                  <p key={idx} className="text-xs text-muted">
+                    💬{' '}
+                    <span className="font-semibold text-fg">
+                      {u.by}
+                    </span>
+                    : {u.text}{' '}
+                    <span className="text-[10px]">
+                      ({u.at})
+                    </span>
+                  </p>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div>
@@ -320,6 +379,7 @@ export function TasksView({ user }) {
           <h2 className="text-2xl font-bold text-fg">
             {clubId ? 'Club Tasks' : 'Tasks'}
           </h2>
+
           <p className="text-muted text-sm">
             {user?.activeClubName
               ? user.activeClubName + ' tasks'
@@ -367,16 +427,22 @@ export function TasksView({ user }) {
           <div>
             <h3 className="text-sm font-semibold text-accent mb-3 flex items-center gap-2">
               <span>🎯</span> Your Tasks
+
               <span className="bg-accent/20 text-accent text-[10px] px-2 py-0.5 rounded-full">
                 {myTasks.length}
               </span>
             </h3>
+
             {myTasks.length === 0 ? (
               <div className="text-center py-6 bg-card border border-border rounded-xl">
-                <p className="text-muted text-sm">No tasks assigned to you</p>
+                <p className="text-muted text-sm">
+                  No tasks assigned to you
+                </p>
               </div>
             ) : (
-              <div className="space-y-3">{myTasks.map(renderTask)}</div>
+              <div className="space-y-3">
+                {myTasks.map(renderTask)}
+              </div>
             )}
           </div>
 
@@ -384,16 +450,22 @@ export function TasksView({ user }) {
           <div>
             <h3 className="text-sm font-semibold text-muted mb-3 flex items-center gap-2">
               <span>📋</span> Other Club Tasks
+
               <span className="bg-muted/20 text-muted text-[10px] px-2 py-0.5 rounded-full">
                 {otherTasks.length}
               </span>
             </h3>
+
             {otherTasks.length === 0 ? (
               <div className="text-center py-6 bg-card border border-border rounded-xl">
-                <p className="text-muted text-sm">No other tasks in this club</p>
+                <p className="text-muted text-sm">
+                  No other tasks in this club
+                </p>
               </div>
             ) : (
-              <div className="space-y-3">{otherTasks.map(renderTask)}</div>
+              <div className="space-y-3">
+                {otherTasks.map(renderTask)}
+              </div>
             )}
           </div>
         </div>
@@ -409,7 +481,10 @@ export function TasksView({ user }) {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between p-5 border-b border-border">
-              <h3 className="font-semibold text-fg">Create Task</h3>
+              <h3 className="font-semibold text-fg">
+                Create Task
+              </h3>
+
               <button
                 onClick={() => setShowCreate(false)}
                 className="p-1.5 hover:bg-card rounded-lg"
@@ -426,6 +501,7 @@ export function TasksView({ user }) {
                 placeholder="Task title"
                 required
               />
+
               <div className="grid grid-cols-3 gap-3">
                 <select
                   value={newPriority}
@@ -436,12 +512,14 @@ export function TasksView({ user }) {
                   <option value="medium">Medium</option>
                   <option value="high">High</option>
                 </select>
+
                 <input
                   value={newAssignee}
                   onChange={(e) => setNewAssignee(e.target.value)}
                   className="bg-card border border-border rounded-xl px-4 py-2.5 text-sm text-fg outline-none"
                   placeholder="Assignee"
                 />
+
                 <input
                   type="date"
                   value={newDueDate}
@@ -455,10 +533,14 @@ export function TasksView({ user }) {
                   type="button"
                   onClick={() => setShowCreate(false)}
                   className="flex-1 py-2 rounded-lg border text-sm"
-                  style={{ borderColor: '#2a2a32', color: '#aaa' }}
+                  style={{
+                    borderColor: '#2a2a32',
+                    color: '#aaa',
+                  }}
                 >
                   Cancel
                 </button>
+
                 <button
                   type="submit"
                   className="flex-1 py-2 rounded-lg text-white text-sm font-medium"
