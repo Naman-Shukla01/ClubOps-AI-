@@ -6,6 +6,7 @@ const eventSchema = new mongoose.Schema(
     description: { type: String, trim: true, default: '' },
     startDate: { type: Date, required: true, index: true },
     endDate: { type: Date, required: true },
+    deadline: { type: Date }, // Manual deadline for tasks/requirements
     location: { type: String, trim: true, default: '' },
     requirements: {
       documents: { type: [String], default: [] },
@@ -17,6 +18,8 @@ const eventSchema = new mongoose.Schema(
       default: 'planning',
       index: true
     },
+    club: { type: mongoose.Schema.Types.ObjectId, ref: 'Club', index: true },
+    volunteers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // Volunteers assigned to this event
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
   },
   { timestamps: true }

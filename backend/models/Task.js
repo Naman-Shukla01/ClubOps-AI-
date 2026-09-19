@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 const taskSchema = new mongoose.Schema(
   {
     event: { type: mongoose.Schema.Types.ObjectId, ref: 'Event', required: true, index: true },
+    club: { type: mongoose.Schema.Types.ObjectId, ref: 'Club', index: true },
     meeting: { type: mongoose.Schema.Types.ObjectId, ref: 'Meeting' },
     title: { type: String, required: true, trim: true },
     description: { type: String, trim: true, default: '' },

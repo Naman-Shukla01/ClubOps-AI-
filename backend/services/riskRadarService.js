@@ -182,14 +182,21 @@ function validateSemanticRisks(result) {
   ));
 }
 
-async function analyzeDocumentSemantics(document) {
+async function analyzeDocumentSemantics(document, tasks = []) {
   if (!document || !process.env.GEMINI_API_KEY || !document.content?.trim()) {
     return [];
   }
 
+  const contextTasks = tasks.map(t => `- ${t.title} (${t.status})`).join('\n');
+
   try {
     const result = await generateStructuredResponse({
-      systemInstruction: 'Identify only plausible operational risks supported by the document. Return only the supplied JSON schema. Do not invent requirements or facts.',
+      systemInstruction: `Identify only plausible operational risks supported by the document. 
+Return only the supplied JSON schema. Do not invent requirements or facts.
+CRITICAL: You are provided with a list of currently planned tasks. Cross-reference the document requirements against these tasks.
+If the document mandates something (e.g., a permit, catering, security) but there is NO corresponding task for it, flag it as a 'Strategic Gap' risk.
+Current Tasks:
+${contextTasks || 'No tasks currently exist.'}`,
       prompt: JSON.stringify({ title: document.title, type: document.type, description: document.description, content: document.content }),
       responseJsonSchema: semanticRiskSchema
     });
@@ -271,9 +278,17 @@ export async function scanEventRisks({ eventId, sourceType, sourceId }) {
     Document.find({ event: eventId })
   ]);
   const deterministicRisks = evaluateDeterministicRisks({ event, tasks, documents });
-  const semanticRisks = sourceType === 'document' && sourceId
-    ? await analyzeDocumentSemantics(documents.find((document) => String(document._id) === String(sourceId)))
-    : [];
+  
+  let semanticRisks = [];
+  if (sourceType === 'document' && sourceId) {
+    const doc = documents.find((document) => String(document._id) === String(sourceId));
+    if (doc) semanticRisks = await analyzeDocumentSemantics(doc, tasks);
+  } else {
+    // Scan all documents if no specific sourceId is provided
+    const allSemanticRisks = await Promise.all(documents.map(doc => analyzeDocumentSemantics(doc, tasks)));
+    semanticRisks = allSemanticRisks.flat();
+  }
+
   const detectedRisks = await saveRisks([...deterministicRisks, ...semanticRisks], eventId);
 
   return detectedRisks;
