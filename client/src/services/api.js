@@ -1,35 +1,95 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+let backendAvailable = false
 
-/**
- * Standard fetch helper with error handling
- */
+export const api = {
+  get: async (url) => {
+    try {
+      const res = await fetch(`${API_BASE}${url}`)
+      backendAvailable = true
+      return res.json()
+    } catch {
+      return null
+    }
+  },
+  post: async (url, data) => {
+    try {
+      const res = await fetch(`${API_BASE}${url}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+      backendAvailable = true
+      return res.json()
+    } catch {
+      return null
+    }
+  },
+  put: async (url, data) => {
+    try {
+      const res = await fetch(`${API_BASE}${url}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+      backendAvailable = true
+      return res.json()
+    } catch {
+      return null
+    }
+  },
+  patch: async (url, data) => {
+    try {
+      const res = await fetch(`${API_BASE}${url}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+      backendAvailable = true
+      return res.json()
+    } catch {
+      return null
+    }
+  },
+  del: async (url) => {
+    try {
+      const res = await fetch(`${API_BASE}${url}`, { method: 'DELETE' })
+      backendAvailable = true
+      return res.json()
+    } catch {
+      return null
+    }
+  },
+  isAvailable: () => backendAvailable,
+}
+
 export async function apiRequest(endpoint, options = {}) {
-  const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
+  const url = endpoint.startsWith('http') ? endpoint : `${API_BASE}${endpoint}`
   const config = {
     headers: {
       'Content-Type': 'application/json',
-      ...options.headers
+      ...options.headers,
     },
-    ...options
-  };
+    ...options,
+  }
 
   try {
-    const response = await fetch(url, config);
-    const data = await response.json().catch(() => null);
+    const response = await fetch(url, config)
+    const data = await response.json().catch(() => null)
+    backendAvailable = true
 
     if (!response.ok) {
-      const errorMessage = data?.message || `Request failed with status ${response.status}`;
-      const error = new Error(errorMessage);
-      error.status = response.status;
-      error.data = data;
-      throw error;
+      const errorMessage = data?.message || `Request failed with status ${response.status}`
+      const error = new Error(errorMessage)
+      error.status = response.status
+      error.data = data
+      throw error
     }
 
-    return data;
+    return data
   } catch (error) {
-    console.error(`API Error on [${config.method || 'GET'} ${url}]:`, error);
-    throw error;
+    console.error(`API Error on [${config.method || 'GET'} ${url}]:`, error)
+    throw error
   }
 }
 
-export default apiRequest;
+export default api
