@@ -3,6 +3,8 @@ import mongoose from 'mongoose';
 import User from '../models/User.js';
 import Task from '../models/Task.js';
 import { AppError } from '../middleware/errorMiddleware.js';
+import { ROLES } from '../middleware/authMiddleware.js';
+import { requireRole } from '../middleware/roleMiddleware.js';
 
 const router = express.Router();
 
@@ -42,7 +44,7 @@ router.get('/', async (req, res, next) => {
   }
 });
 
-router.post('/', async (req, res, next) => {
+router.post('/', requireRole(ROLES.ADMIN, ROLES.EVENT_MANAGER), async (req, res, next) => {
   try {
     const { name, email, skills, capacity, status } = req.body || {};
     if (!name || typeof name !== 'string' || !name.trim()) {
@@ -64,7 +66,7 @@ router.post('/', async (req, res, next) => {
   }
 });
 
-router.patch('/:id/assign-task', async (req, res, next) => {
+router.patch('/:id/assign-task', requireRole(ROLES.ADMIN, ROLES.EVENT_MANAGER), async (req, res, next) => {
   try {
     const { id } = req.params;
     const { taskId } = req.body || {};

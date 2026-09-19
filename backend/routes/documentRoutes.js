@@ -2,8 +2,8 @@ import express from 'express';
 import mongoose from 'mongoose';
 import Document from '../models/Document.js';
 import Event from '../models/Event.js';
-import User from '../models/User.js';
 import { AppError } from '../middleware/errorMiddleware.js';
+import { ROLES } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
@@ -22,26 +22,6 @@ function normalizeDocument(document) {
   };
 }
 
-async function resolveUploadedBy(value) {
-  if (!value) {
-    const user = await User.findOne();
-    return user?._id || null;
-  }
-
-  if (mongoose.isValidObjectId(String(value))) return value;
-
-  const user = await User.findOne({ name: new RegExp(`^${value.trim()}$`, 'i') });
-  if (user) return user._id;
-
-  const created = await User.create({
-    name: value.trim(),
-    email: `${value.trim().toLowerCase().replace(/[^a-z0-9]/g, '') || 'user'}@clubops.ai`,
-    role: 'volunteer',
-  });
-
-  return created._id;
-}
-
 router.get('/', async (req, res, next) => {
   try {
     const documents = await Document.find().populate('event', 'name').populate('uploadedBy', 'name email role').sort({ createdAt: -1 });
@@ -56,7 +36,11 @@ router.get('/', async (req, res, next) => {
 
 router.post('/', async (req, res, next) => {
   try {
-    const { event, title, description, type, content, uploadedBy } = req.body || {};
+    const { event, title, description, type, content } = req.body || {};
+
+    if (String(type || '').trim().toLowerCase() === 'official' && req.user.role !== ROLES.ADMIN) {
+      throw new AppError('Only administrators can upload official club documents', 403);
+    }
 
     if (!event || !mongoose.isValidObjectId(String(event))) {
       throw new AppError('event is required and must be a valid ObjectId', 400);
@@ -77,7 +61,7 @@ router.post('/', async (req, res, next) => {
       description: description || '',
       type: type || 'PDF',
       content: content || '',
-      uploadedBy: await resolveUploadedBy(uploadedBy),
+      uploadedBy: req.user.id,
     });
 
     res.status(201).json({ success: true, data: normalizeDocument(doc) });

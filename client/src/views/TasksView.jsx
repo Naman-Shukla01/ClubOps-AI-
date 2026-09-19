@@ -3,7 +3,7 @@ import { KanbanBoard } from '../components/tasks/KanbanBoard'
 import { CreateTaskModal } from '../components/tasks/CreateTaskModal'
 import { dev1Service } from '../services/dev1Service'
 
-export function TasksView({ onTaskCreated }) {
+export function TasksView({ onTaskCreated, user }) {
   const [tasks, setTasks] = useState([])
   const [showModal, setShowModal] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -26,20 +26,23 @@ export function TasksView({ onTaskCreated }) {
     setLoading(false)
   }
 
-  const handleAdd = (form) => {
-    const newTask = { ...form, id: Date.now(), tags: [], dueDate: form.dueDate || 'TBD' }
-    setTasks((p) => [...p, newTask])
-    dev1Service.createTask(newTask).catch(console.error)
-    setShowModal(false)
+  const handleAdd = async (form) => {
+    try {
+      const createdTask = await dev1Service.createTask({ ...form, dueDate: form.dueDate || 'TBD' })
+      setTasks((previous) => [...previous, createdTask])
+      setShowModal(false)
+    } catch (error) {
+      console.error('Task creation failed:', error)
+    }
   }
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-fg">Tasks</h2>
-        <button onClick={() => setShowModal(true)} className="bg-accent hover:bg-accentHover text-white px-4 py-2 rounded-xl text-sm font-semibold transition-colors">+ New Task</button>
+        {user?.role !== 'VOLUNTEER' && <button onClick={() => setShowModal(true)} className="bg-accent hover:bg-accentHover text-white px-4 py-2 rounded-xl text-sm font-semibold transition-colors">+ New Task</button>}
       </div>
-      {loading ? <p className="text-muted">Loading...</p> : <KanbanBoard tasks={tasks} highlightedId={highlightedId} />}
+      {loading ? <p className="text-muted">Loading...</p> : <KanbanBoard tasks={tasks} highlightedId={highlightedId} canManage={user?.role !== 'VOLUNTEER'} />}
       {showModal && <CreateTaskModal onClose={() => setShowModal(false)} onAdd={handleAdd} />}
     </div>
   )

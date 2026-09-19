@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import ActionCopilotBar from '../components/actions/ActionCopilotBar'
-import { user } from '../data/mockData'
 import { dev1Service } from '../services/dev1Service'
 import { dev2Service } from '../services/dev2Service'
 
-export function DashboardView() {
+export function DashboardView({ user }) {
   const [stats, setStats] = useState({ events: 0, tasks: 0, risks: 0, volunteers: 0 })
   const [loading, setLoading] = useState(true)
 
@@ -32,16 +31,15 @@ export function DashboardView() {
       <ActionCopilotBar />
       <div className="grid grid-cols-4 gap-4">
         {[
-          { label: 'Events', value: stats.events, change: '+2', positive: true },
-          { label: 'Tasks', value: loading ? '...' : stats.tasks, change: '+5', positive: true },
-          { label: 'Risks', value: loading ? '...' : stats.risks, change: '-2', positive: false },
-          { label: 'Volunteers', value: loading ? '...' : stats.volunteers, change: '+3', positive: true },
+          { label: 'Events', value: loading ? '...' : stats.events },
+          { label: 'Tasks', value: loading ? '...' : stats.tasks },
+          { label: 'Risks', value: loading ? '...' : stats.risks },
+          { label: 'Volunteers', value: loading ? '...' : stats.volunteers },
         ].map((s) => (
           <div key={s.label} className="bg-card border border-border rounded-2xl p-5">
             <p className="text-xs text-muted mb-1">{s.label}</p>
             <div className="flex items-end justify-between">
               <span className="text-3xl font-bold text-fg">{s.value}</span>
-              <span className={`text-xs font-semibold ${s.positive ? 'text-green' : 'text-red'}`}>{s.change}</span>
             </div>
           </div>
         ))}

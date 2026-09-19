@@ -1,10 +1,9 @@
 import React, { useState } from 'react'
 import { Upload, Send, FileText } from 'lucide-react'
-import { sampleTranscript } from '../../data/mockData'
 import { dev2Service } from '../../services/dev2Service'
 
 export function TranscriptInput({ onResult, meetingId }) {
-  const [text, setText] = useState(sampleTranscript)
+  const [text, setText] = useState('')
   const [file, setFile] = useState(null)
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState(null)

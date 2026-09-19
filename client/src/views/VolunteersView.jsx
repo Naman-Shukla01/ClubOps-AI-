@@ -15,11 +15,14 @@ export function VolunteersView() {
     setLoading(false)
   }
 
-  const handleAdd = (form) => {
-    const newVol = { ...form, id: Date.now(), capacity: 50, status: 'active' }
-    setVolunteers((p) => [...p, newVol])
-    dev1Service.createVolunteer(newVol).catch(console.error)
-    setShowModal(false)
+  const handleAdd = async (form) => {
+    try {
+      const createdVolunteer = await dev1Service.createVolunteer(form)
+      setVolunteers((previous) => [...previous, createdVolunteer])
+      setShowModal(false)
+    } catch (error) {
+      console.error('Volunteer creation failed:', error)
+    }
   }
 
   return (

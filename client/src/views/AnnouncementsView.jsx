@@ -1,13 +1,12 @@
 import React, { useState } from 'react'
 import BroadcastPreview from '../components/announcements/BroadcastPreview'
-import { announcements as initialAnnouncements } from '../data/mockData'
 import { Plus } from 'lucide-react'
 import { dev2Service } from '../services/dev2Service'
 
 export function AnnouncementsView() {
-  const [announcements, setAnnouncements] = useState(initialAnnouncements)
+  const [announcements, setAnnouncements] = useState([])
   const [events, setEvents] = useState([])
-  const [selectedId, setSelectedId] = useState(initialAnnouncements[0]?.id || null)
+  const [selectedId, setSelectedId] = useState(null)
   const [showForm, setShowForm] = useState(false)
   const [newTitle, setNewTitle] = useState('')
   const [newContent, setNewContent] = useState('')
@@ -23,9 +22,8 @@ export function AnnouncementsView() {
     if (!newTitle.trim()) return
     setAnnouncementLoading(true)
     setAnnouncementError('')
-    const newAnn = { id: Date.now(), title: newTitle, content: newContent, channels, status: 'draft' }
-    setAnnouncements((p) => [newAnn, ...p])
-    setSelectedId(newAnn.id)
+    const title = newTitle
+    const details = newContent
     setNewTitle('')
     setNewContent('')
     setShowForm(false)
@@ -35,20 +33,20 @@ export function AnnouncementsView() {
       const response = await dev2Service.generateAnnouncement({
         eventId: events[0]?.id,
         type: 'general',
-        title: newTitle,
-        details: newContent,
+        title,
+        details,
         channel,
       })
       const generated = response?.announcement
       if (generated) {
         const generatedAnnouncement = {
-          id: Date.now(),
+          id: `${generated.title}-${generated.message}`,
           title: generated.title,
           content: generated.message,
           channels: [channel === 'whatsapp' ? 'WhatsApp' : 'Telegram'],
           status: 'draft',
         }
-        setAnnouncements((previous) => [generatedAnnouncement, ...previous.filter((announcement) => announcement.id !== newAnn.id)])
+        setAnnouncements((previous) => [generatedAnnouncement, ...previous])
         setSelectedId(generatedAnnouncement.id)
       }
     } catch (error) {

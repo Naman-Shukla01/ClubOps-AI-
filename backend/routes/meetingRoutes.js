@@ -4,6 +4,8 @@ import Meeting from '../models/Meeting.js';
 import Event from '../models/Event.js';
 import { AppError } from '../middleware/errorMiddleware.js';
 import { processMeetingTranscript } from '../controllers/meetingController.js';
+import { ROLES } from '../middleware/authMiddleware.js';
+import { requireRole } from '../middleware/roleMiddleware.js';
 
 const router = express.Router();
 
@@ -35,7 +37,7 @@ router.get('/', async (req, res, next) => {
   }
 });
 
-router.post('/', async (req, res, next) => {
+router.post('/', requireRole(ROLES.ADMIN, ROLES.EVENT_MANAGER), async (req, res, next) => {
   try {
     const { event, title, date } = req.body || {};
 
@@ -68,6 +70,6 @@ router.post('/', async (req, res, next) => {
   }
 });
 
-router.post('/process', processMeetingTranscript);
+router.post('/process', requireRole(ROLES.ADMIN, ROLES.EVENT_MANAGER), processMeetingTranscript);
 
 export default router;

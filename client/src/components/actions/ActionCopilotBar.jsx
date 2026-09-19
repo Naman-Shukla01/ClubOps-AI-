@@ -21,13 +21,12 @@ export default function ActionCopilotBar({ onTaskCreated }) {
     setLoading(true)
     try {
       const res = await dev3Service.sendChatMessage(command)
-      const task = res?.affectedRecord || { title: command, status: 'todo', priority: 'medium', assignee: '', tags: ['copilot'], dueDate: '', id: Date.now() }
+      const task = res?.affectedRecord
+      if (!task) throw new Error('The backend did not return an affected record.')
       setCreatedTask(task)
       if (onTaskCreated) onTaskCreated(task)
-    } catch {
-      const fallback = { title: command, status: 'todo', priority: 'medium', assignee: '', tags: ['copilot'], dueDate: '', id: Date.now() }
-      setCreatedTask(fallback)
-      if (onTaskCreated) onTaskCreated(fallback)
+    } catch (error) {
+      console.error('Action Copilot failed:', error)
     }
     setLoading(false)
   }

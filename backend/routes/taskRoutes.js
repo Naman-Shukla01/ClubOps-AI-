@@ -4,6 +4,8 @@ import Task from '../models/Task.js';
 import Event from '../models/Event.js';
 import User from '../models/User.js';
 import { AppError } from '../middleware/errorMiddleware.js';
+import { ROLES } from '../middleware/authMiddleware.js';
+import { requireRole } from '../middleware/roleMiddleware.js';
 
 const router = express.Router();
 
@@ -96,7 +98,8 @@ async function resolveEvent(eventValue) {
 
 router.get('/', async (req, res, next) => {
   try {
-    const tasks = await Task.find().populate('owner', 'name email role').populate('event', 'name').sort({ updatedAt: -1 });
+    const query = req.user.role === ROLES.VOLUNTEER ? { owner: req.user.id } : {};
+    const tasks = await Task.find(query).populate('owner', 'name email role').populate('event', 'name').sort({ updatedAt: -1 });
     res.status(200).json({
       success: true,
       data: tasks.map(normalizeTask),
@@ -106,7 +109,7 @@ router.get('/', async (req, res, next) => {
   }
 });
 
-router.post('/', async (req, res, next) => {
+router.post('/', requireRole(ROLES.ADMIN, ROLES.EVENT_MANAGER), async (req, res, next) => {
   try {
     const { title, description, owner, deadline, priority, status, event, source } = req.body || {};
 
@@ -145,7 +148,15 @@ router.patch('/:id', async (req, res, next) => {
       throw new AppError('Task not found', 404);
     }
 
+    const isManager = [ROLES.ADMIN, ROLES.EVENT_MANAGER].includes(req.user.role);
+    if (!isManager && String(task.owner) !== req.user.id) {
+      throw new AppError('You may only update tasks assigned to you', 403);
+    }
+
     const nextData = req.body || {};
+    if (!isManager && ['owner', 'event'].some((field) => Object.prototype.hasOwnProperty.call(nextData, field))) {
+      throw new AppError('Volunteers cannot reassign tasks or move them between events', 403);
+    }
     if (nextData.title && typeof nextData.title === 'string') task.title = nextData.title.trim();
     if (Object.prototype.hasOwnProperty.call(nextData, 'description')) task.description = nextData.description || '';
     if (Object.prototype.hasOwnProperty.call(nextData, 'owner')) task.owner = await resolveOwner(nextData.owner);
@@ -165,7 +176,7 @@ router.patch('/:id', async (req, res, next) => {
   }
 });
 
-router.delete('/:id', async (req, res, next) => {
+router.delete('/:id', requireRole(ROLES.ADMIN, ROLES.EVENT_MANAGER), async (req, res, next) => {
   try {
     const { id } = req.params;
     if (!mongoose.isValidObjectId(id)) {

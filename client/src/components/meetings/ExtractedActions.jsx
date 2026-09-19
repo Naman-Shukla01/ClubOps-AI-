@@ -1,9 +1,8 @@
 import React, { useState } from 'react'
 import { Check, Plus, RefreshCw } from 'lucide-react'
-import { extractedActions as initialActions } from '../../data/mockData'
 import { dev1Service } from '../../services/dev1Service'
 
-export function ExtractedActions({ actions: providedActions = initialActions }) {
+export function ExtractedActions({ actions: providedActions = [] }) {
   const [actions, setActions] = useState(providedActions)
   const [loading, setLoading] = useState(false)
   const [syncedIds, setSyncedIds] = useState(new Set())

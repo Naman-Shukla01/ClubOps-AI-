@@ -1,25 +1,27 @@
 import React, { useState } from 'react'
 import { Eye, EyeOff, Loader2 } from 'lucide-react'
+import { apiRequest } from '../services/api.js'
 
-export default function Login({ onLogin }) {
+export default function Login({ onLogin, initialError = '' }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPass, setShowPass] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [googleLoading, setGoogleLoading] = useState(false)
+  const [error, setError] = useState(initialError)
+  const googleAuthUrl = `${import.meta.env.VITE_API_URL}/auth/google`
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
     setError('')
-    await new Promise((r) => setTimeout(r, 1000))
-    if (email && password.length >= 6) {
-      const name = email.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
-      const user = { name, role: 'Event Lead', email }
-      localStorage.setItem('user', JSON.stringify(user))
-      if (onLogin) onLogin(user)
-    } else {
-      setError('Enter valid email and password (min 6 chars)')
+    try {
+      const result = await apiRequest('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) })
+      localStorage.setItem('accessToken', result.token)
+      localStorage.setItem('user', JSON.stringify(result.user))
+      if (onLogin) onLogin(result.user)
+    } catch (requestError) {
+      setError(requestError.message || 'Unable to sign in')
     }
     setLoading(false)
   }
@@ -49,7 +51,16 @@ export default function Login({ onLogin }) {
             {loading ? <Loader2 size={18} className="animate-spin mx-auto" /> : 'Sign In'}
           </button>
         </form>
-        <p className="text-center text-xs text-muted mt-6">Demo: any email + password (6+ chars)</p>
+        <div className="flex items-center gap-3 my-5">
+          <div className="h-px flex-1 bg-border" />
+          <span className="text-[11px] text-muted">OR</span>
+          <div className="h-px flex-1 bg-border" />
+        </div>
+        <button type="button" disabled={loading || googleLoading} onClick={() => { setGoogleLoading(true); window.location.assign(googleAuthUrl) }} className="w-full border border-border hover:bg-card text-fg rounded-xl py-3 text-sm font-semibold transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
+          {googleLoading ? <Loader2 size={18} className="animate-spin" /> : <span className="font-bold text-base">G</span>}
+          {googleLoading ? 'Connecting to Google...' : 'Continue with Google'}
+        </button>
+        <p className="text-center text-xs text-muted mt-6">Use your ClubOps account credentials</p>
       </div>
     </div>
   )

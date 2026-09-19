@@ -11,15 +11,16 @@ import { AnnouncementsView } from './views/AnnouncementsView'
 import Login from './pages/Login'
 import ProfileModal from './components/layout/ProfileModal'
 import ActionCopilotBar from './components/actions/ActionCopilotBar'
+import { apiRequest } from './services/api.js'
 
 const TABS = [
-  { id: 'dashboard', label: 'Dashboard', icon: '📊' },
-  { id: 'documents', label: 'Documents & Risks', icon: '📁' },
-  { id: 'tasks', label: 'Tasks', icon: '✅' },
-  { id: 'volunteers', label: 'Volunteers', icon: '👥' },
-  { id: 'meetings', label: 'Meetings', icon: '🎙️' },
-  { id: 'events', label: 'Events', icon: '📅' },
-  { id: 'announcements', label: 'Announcements', icon: '📢' },
+  { id: 'dashboard', label: 'Dashboard', icon: '📊', roles: ['ADMIN', 'EVENT_MANAGER', 'VOLUNTEER'] },
+  { id: 'documents', label: 'Documents & Risks', icon: '📁', roles: ['ADMIN', 'EVENT_MANAGER', 'VOLUNTEER'] },
+  { id: 'tasks', label: 'Tasks', icon: '✅', roles: ['ADMIN', 'EVENT_MANAGER', 'VOLUNTEER'] },
+  { id: 'volunteers', label: 'Volunteers', icon: '👥', roles: ['ADMIN', 'EVENT_MANAGER'] },
+  { id: 'meetings', label: 'Meetings', icon: '🎙️', roles: ['ADMIN', 'EVENT_MANAGER', 'VOLUNTEER'] },
+  { id: 'events', label: 'Events', icon: '📅', roles: ['ADMIN', 'EVENT_MANAGER', 'VOLUNTEER'] },
+  { id: 'announcements', label: 'Announcements', icon: '📢', roles: ['ADMIN', 'EVENT_MANAGER'] },
 ]
 
 export default function App() {
@@ -27,14 +28,66 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('documents')
   const [newTaskId, setNewTaskId] = useState(null)
   const [showProfile, setShowProfile] = useState(false)
-  const [loggedInUser, setLoggedInUser] = useState({ name: 'Arjun Mehta', role: 'Event Lead', email: 'arjun@org.com' })
+  const [authError, setAuthError] = useState('')
+  const [loggedInUser, setLoggedInUser] = useState(null)
 
   useEffect(() => {
-    const saved = localStorage.getItem('user')
-    if (saved) { setIsLoggedIn(true); setLoggedInUser(JSON.parse(saved)) }
+    const handleAuthRequired = (event) => {
+      localStorage.removeItem('accessToken')
+      localStorage.removeItem('user')
+      setIsLoggedIn(false)
+      setAuthError(event.detail?.message || 'Your session has expired. Please sign in again.')
+    }
+    const handleForbidden = (event) => {
+      setAuthError(event.detail?.message || 'You do not have permission to perform this action.')
+    }
+    window.addEventListener('clubops:auth-required', handleAuthRequired)
+    window.addEventListener('clubops:forbidden', handleForbidden)
+    const cleanup = () => {
+      window.removeEventListener('clubops:auth-required', handleAuthRequired)
+      window.removeEventListener('clubops:forbidden', handleForbidden)
+    }
+
+    const hash = new URLSearchParams(window.location.hash.slice(1))
+    const oauthToken = hash.get('oauth_token')
+    const oauthError = hash.get('oauth_error')
+
+    if (oauthError) {
+      setAuthError(oauthError)
+      window.history.replaceState({}, document.title, window.location.pathname + window.location.search)
+      return cleanup
+    }
+
+    if (oauthToken) {
+      localStorage.setItem('accessToken', oauthToken)
+      window.history.replaceState({}, document.title, window.location.pathname + window.location.search)
+      apiRequest('/auth/me').then((result) => {
+        localStorage.setItem('user', JSON.stringify(result.user))
+        setLoggedInUser(result.user)
+        setIsLoggedIn(true)
+      }).catch((error) => {
+        localStorage.removeItem('accessToken')
+        setAuthError(error.message || 'Google authentication failed')
+      })
+      return cleanup
+    }
+
+    const token = localStorage.getItem('accessToken')
+    if (!token) return cleanup
+
+    apiRequest('/auth/me').then((result) => {
+      localStorage.setItem('user', JSON.stringify(result.user))
+      setLoggedInUser(result.user)
+      setIsLoggedIn(true)
+    }).catch(() => {
+      localStorage.removeItem('accessToken')
+      localStorage.removeItem('user')
+    })
+
+    return cleanup
   }, [])
 
-  if (!isLoggedIn) return <Login onLogin={(u) => { setLoggedInUser(u); setIsLoggedIn(true) }} />
+  if (!isLoggedIn) return <Login initialError={authError} onLogin={(u) => { setLoggedInUser(u); setIsLoggedIn(true) }} />
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -44,18 +97,19 @@ export default function App() {
         onTabChange={setActiveTab}
         tabs={TABS}
         onProfileClick={() => setShowProfile(true)}
-        onLogout={() => { localStorage.removeItem('user'); window.location.reload() }}
+        onLogout={() => { localStorage.removeItem('user'); localStorage.removeItem('accessToken'); window.location.reload() }}
       />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header />
         <main className="flex-1 overflow-y-auto p-6">
-          {activeTab === 'dashboard' && <DashboardView />}
+          {authError && <p className="mb-4 text-xs text-red" role="alert">{authError}</p>}
+          {activeTab === 'dashboard' && <DashboardView user={loggedInUser} />}
           {activeTab === 'documents' && <DocumentsAndRisksView />}
-          {activeTab === 'tasks' && <TasksView key={newTaskId || 'default'} />}
+          {activeTab === 'tasks' && <TasksView key={newTaskId || 'default'} user={loggedInUser} />}
           {activeTab === 'volunteers' && <VolunteersView />}
           {activeTab === 'meetings' && <MeetingsView />}
           {activeTab === 'events' && <EventsView />}
-          {activeTab === 'announcements' && <AnnouncementsView />}
+          {activeTab === 'announcements' && <AnnouncementsView user={loggedInUser} />}
         </main>
       </div>
       {showProfile && <ProfileModal user={loggedInUser} onClose={() => setShowProfile(false)} />}

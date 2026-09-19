@@ -13,7 +13,7 @@ export function Sidebar({ user, activeTab, onTabChange, tabs, onProfileClick, on
         </div>
       </div>
       <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
-        {tabs.map((tab) => (
+        {tabs.filter((tab) => !tab.roles || tab.roles.includes(user.role)).map((tab) => (
           <button key={tab.id} onClick={() => onTabChange(tab.id)}
             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-200 ${
               activeTab === tab.id ? 'bg-accent/10 text-accent' : 'text-muted hover:text-fg hover:bg-card'

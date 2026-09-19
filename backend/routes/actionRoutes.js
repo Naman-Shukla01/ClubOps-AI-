@@ -1,6 +1,8 @@
 import express from 'express';
 import { handleAiChat } from '../controllers/actionController.js';
 import { getHealthAnalytics } from '../controllers/analyticsController.js';
+import { ROLES } from '../middleware/authMiddleware.js';
+import { requireRole } from '../middleware/roleMiddleware.js';
 
 const router = express.Router();
 
@@ -9,8 +11,8 @@ const router = express.Router();
  * POST /api/actions/chat or /api/ai/chat
  * GET  /api/actions/chat - Usage helper
  */
-router.post('/chat', handleAiChat);
-router.post('/execute', handleAiChat);
+router.post('/chat', requireRole(ROLES.ADMIN, ROLES.EVENT_MANAGER), handleAiChat);
+router.post('/execute', requireRole(ROLES.ADMIN, ROLES.EVENT_MANAGER), handleAiChat);
 router.get('/chat', (req, res) => {
   res.status(200).json({
     success: true,

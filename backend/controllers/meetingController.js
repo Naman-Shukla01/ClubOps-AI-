@@ -5,6 +5,7 @@ import User from '../models/User.js';
 import { AppError } from '../middleware/errorMiddleware.js';
 import { parseMeetingTranscript } from '../services/transcriptParserService.js';
 import { scanEventRisks } from '../services/riskRadarService.js';
+import { ROLES } from '../middleware/authMiddleware.js';
 
 const MAX_TRANSCRIPT_LENGTH = 50000;
 
@@ -72,6 +73,9 @@ export async function processMeetingTranscript(req, res, next) {
     const meeting = meetingId ? await Meeting.findById(meetingId) : null;
     if (meetingId && !meeting) {
       throw new AppError('Meeting not found', 404);
+    }
+    if (meeting && req.user.role === ROLES.VOLUNTEER) {
+      throw new AppError('Volunteers cannot process meeting transcripts', 403);
     }
 
     const parsedTranscript = await parseMeetingTranscript(text.trim(), meeting?.date);

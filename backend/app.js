@@ -1,18 +1,25 @@
 import 'dotenv/config';
 import cors from 'cors';
 import express from 'express';
+import session from 'express-session';
 import actionRoutes from './routes/actionRoutes.js';
 import aiRoutes from './routes/aiRoutes.js';
 import analyticsRoutes from './routes/analyticsRoutes.js';
+import authRoutes from './routes/authRoutes.js';
 import documentRoutes from './routes/documentRoutes.js';
 import eventRoutes from './routes/eventRoutes.js';
 import meetingRoutes from './routes/meetingRoutes.js';
 import riskRoutes from './routes/riskRoutes.js';
 import taskRoutes from './routes/taskRoutes.js';
 import volunteerRoutes from './routes/volunteerRoutes.js';
+import userRoutes from './routes/userRoutes.js';
+import { authenticate } from './middleware/authMiddleware.js';
 import { errorHandler, notFound } from './middleware/errorMiddleware.js';
+import { configureGoogleStrategy } from './config/googleAuth.js';
+import passport from './config/googleAuth.js';
 
 const app = express();
+configureGoogleStrategy();
 const allowedOrigin = process.env.CLIENT_URL || '*';
 const allowedOrigins = allowedOrigin === '*'
   ? null
@@ -32,6 +39,18 @@ app.use(cors({
     callback(new Error('Origin is not allowed by CORS'));
   },
 }));
+app.use(session({
+  secret: process.env.OAUTH_SESSION_SECRET || process.env.JWT_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 10 * 60 * 1000,
+  },
+}));
+app.use(passport.initialize());
 app.use(express.json({ limit: '1mb' }));
 
 app.get('/api/health', (req, res) => {
@@ -41,15 +60,18 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-app.use('/api/events', eventRoutes);
-app.use('/api/meetings', meetingRoutes);
-app.use('/api/tasks', taskRoutes);
-app.use('/api/volunteers', volunteerRoutes);
-app.use('/api/documents', documentRoutes);
-app.use('/api/risks', riskRoutes);
-app.use('/api/ai', aiRoutes);
-app.use('/api/actions', actionRoutes);
-app.use('/api/analytics', analyticsRoutes);
+app.use('/api/auth', authRoutes);
+
+app.use('/api/events', authenticate, eventRoutes);
+app.use('/api/meetings', authenticate, meetingRoutes);
+app.use('/api/tasks', authenticate, taskRoutes);
+app.use('/api/volunteers', authenticate, volunteerRoutes);
+app.use('/api/documents', authenticate, documentRoutes);
+app.use('/api/risks', authenticate, riskRoutes);
+app.use('/api/ai', authenticate, aiRoutes);
+app.use('/api/actions', authenticate, actionRoutes);
+app.use('/api/analytics', authenticate, analyticsRoutes);
+app.use('/api/users', authenticate, userRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

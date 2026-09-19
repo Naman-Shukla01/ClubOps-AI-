@@ -1,8 +1,9 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import Event from '../models/Event.js';
-import User from '../models/User.js';
 import { AppError } from '../middleware/errorMiddleware.js';
+import { ROLES } from '../middleware/authMiddleware.js';
+import { requireRole } from '../middleware/roleMiddleware.js';
 
 const router = express.Router();
 
@@ -23,26 +24,6 @@ function normalizeEvent(event) {
   };
 }
 
-async function resolveCreator(value) {
-  if (value && mongoose.isValidObjectId(String(value))) return value;
-
-  const user = await User.findOne();
-  if (value) {
-    const existing = await User.findOne({ name: new RegExp(`^${String(value).trim()}$`, 'i') });
-    if (existing) return existing._id;
-  }
-
-  if (user) return user._id;
-
-  const created = await User.create({
-    name: 'Club Lead',
-    email: 'lead@clubops.ai',
-    role: 'lead',
-  });
-
-  return created._id;
-}
-
 router.get('/', async (req, res, next) => {
   try {
     const events = await Event.find().sort({ startDate: 1 });
@@ -55,9 +36,9 @@ router.get('/', async (req, res, next) => {
   }
 });
 
-router.post('/', async (req, res, next) => {
+router.post('/', requireRole(ROLES.ADMIN, ROLES.EVENT_MANAGER), async (req, res, next) => {
   try {
-    const { name, description, startDate, endDate, location, status, createdBy } = req.body || {};
+    const { name, description, startDate, endDate, location, status } = req.body || {};
 
     if (!name || typeof name !== 'string' || !name.trim()) {
       throw new AppError('name is required', 400);
@@ -74,13 +55,36 @@ router.post('/', async (req, res, next) => {
       endDate: new Date(endDate),
       location: location || '',
       status: status || 'planning',
-      createdBy: await resolveCreator(createdBy),
+      createdBy: req.user.id,
     });
 
     res.status(201).json({ success: true, data: normalizeEvent(event) });
   } catch (error) {
     next(error);
   }
+});
+
+router.patch('/:id', requireRole(ROLES.ADMIN, ROLES.EVENT_MANAGER), async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) throw new AppError('event id is invalid', 400);
+    const allowed = ['name', 'description', 'startDate', 'endDate', 'location', 'status', 'requirements'];
+    const updates = Object.fromEntries(Object.entries(req.body || {}).filter(([key]) => allowed.includes(key)));
+    if (updates.name !== undefined && (!String(updates.name).trim())) throw new AppError('name cannot be empty', 400);
+    if (updates.startDate) updates.startDate = new Date(updates.startDate);
+    if (updates.endDate) updates.endDate = new Date(updates.endDate);
+    const event = await Event.findByIdAndUpdate(req.params.id, updates, { new: true, runValidators: true });
+    if (!event) throw new AppError('Event not found', 404);
+    res.json({ success: true, data: normalizeEvent(event) });
+  } catch (error) { next(error); }
+});
+
+router.delete('/:id', requireRole(ROLES.ADMIN), async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) throw new AppError('event id is invalid', 400);
+    const event = await Event.findByIdAndDelete(req.params.id);
+    if (!event) throw new AppError('Event not found', 404);
+    res.json({ success: true, data: { id: req.params.id, deleted: true } });
+  } catch (error) { next(error); }
 });
 
 export default router;

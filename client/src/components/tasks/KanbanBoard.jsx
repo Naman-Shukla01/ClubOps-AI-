@@ -8,7 +8,7 @@ const columns = [
   { id: 'completed', label: 'Completed', color: '#34d399' },
 ]
 
-export function KanbanBoard({ tasks, highlightedId }) {
+export function KanbanBoard({ tasks, highlightedId, canManage = false }) {
   return (
     <div className="flex gap-5 overflow-x-auto pb-2">
       {columns.map((col) => (
@@ -21,9 +21,9 @@ export function KanbanBoard({ tasks, highlightedId }) {
                 {tasks.filter((t) => t.status === col.id).length}
               </span>
             </div>
-            <button className="p-1 hover:bg-card rounded">
+            {canManage && <button className="p-1 hover:bg-card rounded">
               <Plus size={12} className="text-muted" />
-            </button>
+            </button>}
           </div>
           <div className="space-y-3 min-h-[100px] bg-surface/50 rounded-xl p-2">
             {tasks.filter((t) => t.status === col.id).map((task) => (

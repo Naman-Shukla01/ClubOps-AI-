@@ -45,8 +45,7 @@ export async function createAnnouncement(req, res, next) {
       throw new AppError('Event not found', 404);
     }
 
-    const requesterId = req.user?.id || req.user?._id;
-    if (requesterId && String(event.createdBy) !== String(requesterId)) {
+    if (req.user.role !== 'ADMIN' && String(event.createdBy) !== String(req.user.id)) {
       throw new AppError('You are not authorized to access this event', 403);
     }
 

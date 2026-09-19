@@ -1,10 +1,14 @@
 const API_BASE = import.meta.env.VITE_API_URL
 let backendAvailable = false
+const authHeaders = () => {
+  const token = localStorage.getItem('accessToken')
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
 
 export const api = {
   get: async (url) => {
     try {
-      const res = await fetch(`${API_BASE}${url}`)
+      const res = await fetch(`${API_BASE}${url}`, { headers: authHeaders() })
       backendAvailable = true
       return res.json()
     } catch {
@@ -15,7 +19,7 @@ export const api = {
     try {
       const res = await fetch(`${API_BASE}${url}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify(data),
       })
       backendAvailable = true
@@ -28,7 +32,7 @@ export const api = {
     try {
       const res = await fetch(`${API_BASE}${url}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify(data),
       })
       backendAvailable = true
@@ -41,7 +45,7 @@ export const api = {
     try {
       const res = await fetch(`${API_BASE}${url}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify(data),
       })
       backendAvailable = true
@@ -52,7 +56,7 @@ export const api = {
   },
   del: async (url) => {
     try {
-      const res = await fetch(`${API_BASE}${url}`, { method: 'DELETE' })
+      const res = await fetch(`${API_BASE}${url}`, { method: 'DELETE', headers: authHeaders() })
       backendAvailable = true
       return res.json()
     } catch {
@@ -67,6 +71,7 @@ export async function apiRequest(endpoint, options = {}) {
   const config = {
     headers: {
       'Content-Type': 'application/json',
+      ...(localStorage.getItem('accessToken') ? { Authorization: `Bearer ${localStorage.getItem('accessToken')}` } : {}),
       ...options.headers,
     },
     ...options,
@@ -82,6 +87,11 @@ export async function apiRequest(endpoint, options = {}) {
       const error = new Error(errorMessage)
       error.status = response.status
       error.data = data
+      if (response.status === 401) {
+        window.dispatchEvent(new CustomEvent('clubops:auth-required', { detail: { message: errorMessage } }))
+      } else if (response.status === 403) {
+        window.dispatchEvent(new CustomEvent('clubops:forbidden', { detail: { message: errorMessage } }))
+      }
       throw error
     }
 

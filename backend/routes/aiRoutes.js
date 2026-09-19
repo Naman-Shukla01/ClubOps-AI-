@@ -2,6 +2,8 @@ import express from 'express';
 import { createAnnouncement } from '../controllers/announcementController.js';
 import { processRiskScan } from '../controllers/riskController.js';
 import { handleAiChat } from '../controllers/actionController.js';
+import { ROLES } from '../middleware/authMiddleware.js';
+import { requireRole } from '../middleware/roleMiddleware.js';
 
 const router = express.Router();
 
@@ -10,7 +12,7 @@ const router = express.Router();
  * POST /api/ai/chat - Execute actions via plain English
  * GET  /api/ai/chat - Usage helper & documentation
  */
-router.post('/chat', handleAiChat);
+router.post('/chat', requireRole(ROLES.ADMIN, ROLES.EVENT_MANAGER), handleAiChat);
 router.get('/chat', (req, res) => {
   res.status(200).json({
     success: true,
@@ -31,7 +33,7 @@ router.get('/chat', (req, res) => {
   });
 });
 
-router.post('/risk-scan', processRiskScan);
-router.post('/announcement', createAnnouncement);
+router.post('/risk-scan', requireRole(ROLES.ADMIN, ROLES.EVENT_MANAGER), processRiskScan);
+router.post('/announcement', requireRole(ROLES.ADMIN, ROLES.EVENT_MANAGER), createAnnouncement);
 
 export default router;
