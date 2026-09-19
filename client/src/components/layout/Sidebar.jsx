@@ -167,19 +167,6 @@ export default function Sidebar({
         )}
 
       </div>
-<<<<<<< HEAD
-      <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
-        {tabs.filter((tab) => !tab.roles || tab.roles.includes(user.role)).map((tab) => (
-          <button key={tab.id} onClick={() => onTabChange(tab.id)}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-200 ${
-              activeTab === tab.id ? 'bg-accent/10 text-accent' : 'text-muted hover:text-fg hover:bg-card'
-            }`}
-          >
-            <span className="text-base">{tab.icon}</span>
-            {tab.label}
-          </button>
-        ))}
-=======
 
       {/* Navigation */}
       <nav className="flex-1 px-2 space-y-1 mt-4 overflow-y-auto">
@@ -324,7 +311,6 @@ export default function Sidebar({
           );
         })}
 
->>>>>>> dee661aee8efa31dbcab097b1cd8eb12a2cd9c42
       </nav>
 
       {/* Bottom section */}

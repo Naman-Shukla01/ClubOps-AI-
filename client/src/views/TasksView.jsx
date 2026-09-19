@@ -1,10 +1,6 @@
 import React, { useState, useEffect } from 'react'
 
-<<<<<<< HEAD
-export function TasksView({ onTaskCreated, user }) {
-=======
 export function TasksView({ user }) {
->>>>>>> dee661aee8efa31dbcab097b1cd8eb12a2cd9c42
   const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
@@ -81,16 +77,6 @@ export function TasksView({ user }) {
     setLoading(false)
   }
 
-<<<<<<< HEAD
-  const handleAdd = async (form) => {
-    try {
-      const createdTask = await dev1Service.createTask({ ...form, dueDate: form.dueDate || 'TBD' })
-      setTasks((previous) => [...previous, createdTask])
-      setShowModal(false)
-    } catch (error) {
-      console.error('Task creation failed:', error)
-    }
-=======
   const saveTasksState = (updated) => {
     setTasks(updated)
     localStorage.setItem(`tasks_${clubId}`, JSON.stringify(updated))
@@ -384,19 +370,11 @@ export function TasksView({ user }) {
         )}
       </div>
     )
->>>>>>> dee661aee8efa31dbcab097b1cd8eb12a2cd9c42
   }
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-<<<<<<< HEAD
-        <h2 className="text-2xl font-bold text-fg">Tasks</h2>
-        {user?.role !== 'VOLUNTEER' && <button onClick={() => setShowModal(true)} className="bg-accent hover:bg-accentHover text-white px-4 py-2 rounded-xl text-sm font-semibold transition-colors">+ New Task</button>}
-      </div>
-      {loading ? <p className="text-muted">Loading...</p> : <KanbanBoard tasks={tasks} highlightedId={highlightedId} canManage={user?.role !== 'VOLUNTEER'} />}
-      {showModal && <CreateTaskModal onClose={() => setShowModal(false)} onAdd={handleAdd} />}
-=======
         <div>
           <h2 className="text-2xl font-bold text-fg">
             {clubId ? 'Club Tasks' : 'Tasks'}
@@ -575,7 +553,6 @@ export function TasksView({ user }) {
           </div>
         </div>
       )}
->>>>>>> dee661aee8efa31dbcab097b1cd8eb12a2cd9c42
     </div>
   )
 }

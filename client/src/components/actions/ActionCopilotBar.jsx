@@ -25,16 +25,6 @@ export default function ActionCopilotBar({ onTaskCreated }) {
     if (!command.trim()) return
 
     setLoading(true)
-<<<<<<< HEAD
-    try {
-      const res = await dev3Service.sendChatMessage(command)
-      const task = res?.affectedRecord
-      if (!task) throw new Error('The backend did not return an affected record.')
-      setCreatedTask(task)
-      if (onTaskCreated) onTaskCreated(task)
-    } catch (error) {
-      console.error('Action Copilot failed:', error)
-=======
 
     const task = {
       id: Date.now(),
@@ -44,7 +34,6 @@ export default function ActionCopilotBar({ onTaskCreated }) {
       assignee: '',
       tags: ['copilot'],
       dueDate: '',
->>>>>>> dee661aee8efa31dbcab097b1cd8eb12a2cd9c42
     }
 
     try {
