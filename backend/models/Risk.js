@@ -1,38 +1,3 @@
-<<<<<<< HEAD
-// models/Risk.js
-const mongoose = require('mongoose');
-
-const RiskSchema = new mongoose.Schema({
-  title: { 
-    type: String, 
-    required: true 
-  },
-  description: { 
-    type: String, 
-    required: true 
-  },
-  severity: { 
-    type: String, 
-    enum: ['Low', 'Medium', 'High', 'Critical'], 
-    default: 'Medium' 
-  },
-  status: { 
-    type: String, 
-    enum: ['Open', 'Mitigated', 'Resolved'], 
-    default: 'Open' 
-  },
-  relatedTask: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'Task' 
-  },
-  createdAt: { 
-    type: Date, 
-    default: Date.now 
-  }
-});
-
-module.exports = mongoose.model('Risk', RiskSchema);
-=======
 import mongoose from 'mongoose';
 
 const riskSchema = new mongoose.Schema(
@@ -62,4 +27,3 @@ riskSchema.index(
 );
 
 export default mongoose.model('Risk', riskSchema);
->>>>>>> main
