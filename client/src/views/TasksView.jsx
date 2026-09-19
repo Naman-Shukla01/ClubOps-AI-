@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react'
+import { dev1Service } from '../services/dev1Service'
+import { dev2Service } from '../services/dev2Service'
 
 export function TasksView({ user }) {
   const [tasks, setTasks] = useState([])
+  const [events, setEvents] = useState([])
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
   const [filter, setFilter] = useState('all')
@@ -15,9 +18,12 @@ export function TasksView({ user }) {
   const [newPriority, setNewPriority] = useState('medium')
   const [newAssignee, setNewAssignee] = useState('')
   const [newDueDate, setNewDueDate] = useState('')
+  const [newEventId, setNewEventId] = useState('')
 
-  const isClubHead = user?.role === 'club-head'
+  // true only if this user is the lead organizer (created the club)
+  const isClubHead = user?.isClubLead === true || user?.role === 'EVENT_MANAGER' || user?.role === 'ADMIN'
   const clubId = user?.activeClubId
+
 
   useEffect(() => {
     loadTasks()
@@ -26,91 +32,52 @@ export function TasksView({ user }) {
   const loadTasks = async () => {
     setLoading(true)
 
-    if (!clubId) {
+    try {
+      const [tasksData, eventsData] = await Promise.all([
+        dev1Service.getTasks(clubId || undefined),
+        dev2Service.getEvents(clubId || undefined)
+      ])
+      
+      setTasks(Array.isArray(tasksData) ? tasksData : [])
+      setEvents(Array.isArray(eventsData) ? eventsData : [])
+    } catch (error) {
+      console.error('Failed to load tasks:', error)
       setTasks([])
+      setEvents([])
+    } finally {
       setLoading(false)
-      return
     }
-
-    const key = `tasks_${clubId}`
-    const stored = localStorage.getItem(key)
-
-    if (stored) {
-      try {
-        setTasks(JSON.parse(stored))
-      } catch {
-        localStorage.removeItem(key)
-        setTasks([])
-      }
-
-      setLoading(false)
-      return
-    }
-
-    const initialTasks = [
-      {
-        id: `${clubId}-task-1`,
-        title: `${user?.activeClubName || 'Club'} Event Planning`,
-        status: 'todo',
-        priority: 'high',
-        assignee: user?.name || 'Unassigned',
-        dueDate: '2026-10-10',
-        clubId,
-        tags: ['club'],
-        updates: [],
-      },
-      {
-        id: `${clubId}-task-2`,
-        title: 'Prepare event requirements',
-        status: 'in-progress',
-        priority: 'medium',
-        assignee: 'Club Volunteer',
-        dueDate: '2026-10-15',
-        clubId,
-        tags: ['club'],
-        updates: [],
-      },
-    ]
-
-    setTasks(initialTasks)
-    localStorage.setItem(key, JSON.stringify(initialTasks))
-    setLoading(false)
   }
 
-  const saveTasksState = (updated) => {
-    setTasks(updated)
-    localStorage.setItem(`tasks_${clubId}`, JSON.stringify(updated))
-  }
-
-  const handleCreate = (e) => {
+  const handleCreate = async (e) => {
     e.preventDefault()
 
     if (!newTitle.trim() || !clubId) return
 
-    const task = {
-      id: Date.now(),
-      title: newTitle.trim(),
-      status: 'todo',
-      priority: newPriority,
-      assignee: newAssignee.trim() || 'Unassigned',
-      dueDate: newDueDate,
-      clubId,
-      tags: ['club'],
-      updates: [],
+    try {
+      await dev1Service.createTask({
+        title: newTitle.trim(),
+        priority: newPriority,
+        assignee: newAssignee.trim() || 'Unassigned',
+        deadline: newDueDate,
+        event: newEventId || undefined,
+        clubId,
+      })
+
+      setNewTitle('')
+      setNewPriority('medium')
+      setNewAssignee('')
+      setNewDueDate('')
+      setNewEventId('')
+      setShowCreate(false)
+      loadTasks()
+    } catch (err) {
+      console.error('Failed to create task:', err)
+      alert('Failed to create task.')
     }
-
-    saveTasksState([task, ...tasks])
-
-    setNewTitle('')
-    setNewPriority('medium')
-    setNewAssignee('')
-    setNewDueDate('')
-    setShowCreate(false)
   }
 
-  const handleStatusChange = (task, nextStatus) => {
-    // Club heads can update any task.
-    // Regular members can update only their own assigned tasks.
+  const handleStatusChange = async (task, nextStatus) => {
     const canUpdateStatus =
       isClubHead ||
       (
@@ -122,41 +89,25 @@ export function TasksView({ user }) {
     if (!canUpdateStatus) return
 
     let updateNote = ''
-
     if (nextStatus === 'completed') {
       const inputNote = prompt(
         'Add work completion note (optional):',
         'Task completed successfully!'
       )
-
       if (inputNote !== null) {
         updateNote = inputNote
       }
     }
 
-    const updated = tasks.map((t) => {
-      if (t.id === task.id) {
-        const notes = [...(t.updates || [])]
-
-        if (updateNote) {
-          notes.push({
-            text: updateNote,
-            by: user?.name || 'Volunteer',
-            at: new Date().toLocaleTimeString(),
-          })
-        }
-
-        return {
-          ...t,
-          status: nextStatus,
-          updates: notes,
-        }
-      }
-
-      return t
-    })
-
-    saveTasksState(updated)
+    try {
+      await dev1Service.updateTask(task.id, {
+        status: nextStatus,
+        description: updateNote ? (task.description ? task.description + '\n\n' + updateNote : updateNote) : task.description
+      })
+      loadTasks()
+    } catch (err) {
+      console.error('Failed to update task:', err)
+    }
   }
 
   const startEdit = (task) => {
@@ -168,28 +119,32 @@ export function TasksView({ user }) {
     setEditAssignee(task.assignee)
   }
 
-  const saveEdit = () => {
+  const saveEdit = async () => {
     if (!editing || !editTitle.trim() || !isClubHead) return
 
-    const updated = tasks.map((t) =>
-      t.id === editing.id
-        ? {
-          ...t,
-          title: editTitle.trim(),
-          status: editStatus,
-          assignee: editAssignee.trim() || 'Unassigned',
-        }
-        : t
-    )
-
-    saveTasksState(updated)
-    setEditing(null)
+    try {
+      await dev1Service.updateTask(editing.id, {
+        title: editTitle.trim(),
+        status: editStatus,
+        assignee: editAssignee.trim() || 'Unassigned',
+      })
+      setEditing(null)
+      loadTasks()
+    } catch (err) {
+      console.error('Failed to save task edit:', err)
+      alert('Failed to save edit')
+    }
   }
 
-  const deleteTask = (taskId) => {
+  const deleteTask = async (taskId) => {
     if (!isClubHead) return
 
-    saveTasksState(tasks.filter((t) => t.id !== taskId))
+    try {
+      await dev1Service.deleteTask(taskId)
+      loadTasks()
+    } catch (err) {
+      console.error('Failed to delete task:', err)
+    }
   }
 
   const allFiltered =
@@ -306,6 +261,12 @@ export function TasksView({ user }) {
               <span className="text-xs text-muted">
                 👤 {task.assignee || 'Unassigned'}
               </span>
+
+              {task.event?.name && (
+                <span className="text-xs text-accent px-2 py-0.5 bg-accent/10 rounded-full flex items-center gap-1 border border-accent/20">
+                  📅 {task.event.name}
+                </span>
+              )}
 
               <div className="flex gap-1">
                 {isClubHead && (
@@ -502,30 +463,52 @@ export function TasksView({ user }) {
                 required
               />
 
-              <div className="grid grid-cols-3 gap-3">
-                <select
-                  value={newPriority}
-                  onChange={(e) => setNewPriority(e.target.value)}
-                  className="bg-card border border-border rounded-xl px-4 py-2.5 text-sm text-fg outline-none"
-                >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                </select>
-
-                <input
-                  value={newAssignee}
-                  onChange={(e) => setNewAssignee(e.target.value)}
-                  className="bg-card border border-border rounded-xl px-4 py-2.5 text-sm text-fg outline-none"
-                  placeholder="Assignee"
-                />
-
-                <input
-                  type="date"
-                  value={newDueDate}
-                  onChange={(e) => setNewDueDate(e.target.value)}
-                  className="bg-card border border-border rounded-xl px-4 py-2.5 text-sm text-fg outline-none"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs text-muted">Event</label>
+                  <select
+                    value={newEventId}
+                    onChange={(e) => setNewEventId(e.target.value)}
+                    className="w-full bg-card border border-border rounded-xl px-4 py-2.5 text-sm text-fg outline-none"
+                  >
+                    <option value="">No Event</option>
+                    {events.map((ev) => (
+                      <option key={ev.id} value={ev.id}>
+                        {ev.name || ev.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted">Priority</label>
+                  <select
+                    value={newPriority}
+                    onChange={(e) => setNewPriority(e.target.value)}
+                    className="w-full bg-card border border-border rounded-xl px-4 py-2.5 text-sm text-fg outline-none"
+                  >
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted">Assignee</label>
+                  <input
+                    value={newAssignee}
+                    onChange={(e) => setNewAssignee(e.target.value)}
+                    className="w-full bg-card border border-border rounded-xl px-4 py-2.5 text-sm text-fg outline-none"
+                    placeholder="Assignee"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted">Due Date</label>
+                  <input
+                    type="date"
+                    value={newDueDate}
+                    onChange={(e) => setNewDueDate(e.target.value)}
+                    className="w-full bg-card border border-border rounded-xl px-4 py-2.5 text-sm text-fg outline-none"
+                  />
+                </div>
               </div>
 
               <div className="flex gap-3">

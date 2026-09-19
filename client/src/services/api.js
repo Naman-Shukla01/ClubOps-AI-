@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_URL
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 let backendAvailable = false
 const authHeaders = () => {
   const token = localStorage.getItem('accessToken')
@@ -68,9 +68,10 @@ export const api = {
 
 export async function apiRequest(endpoint, options = {}) {
   const url = endpoint.startsWith('http') ? endpoint : `${API_BASE}${endpoint}`
+  const isFormData = options.body instanceof FormData;
   const config = {
     headers: {
-      'Content-Type': 'application/json',
+      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       ...(localStorage.getItem('accessToken') ? { Authorization: `Bearer ${localStorage.getItem('accessToken')}` } : {}),
       ...options.headers,
     },

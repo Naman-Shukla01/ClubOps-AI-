@@ -2,10 +2,13 @@ import React from "react";
 
 export function VolunteerCard({
   volunteer,
+  events = [],
   canManage = false,
   onEdit,
   onDelete,
+  onAssignToEvent,
 }) {
+  const [selectedEvent, setSelectedEvent] = React.useState("");
   if (!volunteer) {
     return null;
   }
@@ -98,31 +101,52 @@ export function VolunteerCard({
 
       {/* Actions */}
       {canManage && (
-        <div className="mt-5 pt-4 border-t border-gray-800 flex gap-2">
+        <div className="mt-5 pt-4 border-t border-gray-800 flex flex-col gap-3">
+          {events.length > 0 && (
+            <div className="flex gap-2 items-center bg-gray-900/50 p-2 rounded-lg border border-gray-800">
+              <select
+                value={selectedEvent}
+                onChange={(e) => setSelectedEvent(e.target.value)}
+                className="flex-1 bg-transparent text-xs text-gray-300 outline-none"
+              >
+                <option value="">Assign to event...</option>
+                {events.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.name || e.title}
+                  </option>
+                ))}
+              </select>
+              <button
+                disabled={!selectedEvent}
+                onClick={() => {
+                  onAssignToEvent?.(volunteer.id, selectedEvent);
+                  setSelectedEvent("");
+                }}
+                className="px-2 py-1 bg-accent/20 text-accent rounded text-[10px] font-semibold disabled:opacity-50"
+              >
+                Assign
+              </button>
+            </div>
+          )}
 
-          <button
-            onClick={() =>
-              onEdit?.(volunteer)
-            }
-            className="flex-1 px-3 py-2 rounded-lg text-sm font-medium text-white transition"
-            style={{
-              background: "#252535",
-            }}
-          >
-            Edit
-          </button>
-
-          <button
-            onClick={() =>
-              onDelete?.(volunteer)
-            }
-            className="flex-1 px-3 py-2 rounded-lg text-sm font-medium text-red-400 transition hover:bg-red-500/10"
-          >
-            Delete
-          </button>
-
+          <div className="flex gap-2">
+            <button
+              onClick={() => onEdit?.(volunteer)}
+              className="flex-1 px-3 py-2 rounded-lg text-sm font-medium text-white transition bg-[#252535]"
+            >
+              Edit
+            </button>
+            <button
+              onClick={() => onDelete?.(volunteer)}
+              className="flex-1 px-3 py-2 rounded-lg text-sm font-medium text-red-400 transition hover:bg-red-500/10"
+            >
+              Delete
+            </button>
+          </div>
         </div>
       )}
+
+
 
     </div>
   );

@@ -25,8 +25,9 @@ const normalizeTaskPayload = (data = {}) => ({
   })(),
 })
 
-export const getTasks = async () => {
-  const res = await apiRequest('/tasks', { method: 'GET' })
+export const getTasks = async (clubId) => {
+  const url = clubId ? `/tasks?clubId=${clubId}` : '/tasks'
+  const res = await apiRequest(url, { method: 'GET' })
   return toTaskData(res)
 }
 

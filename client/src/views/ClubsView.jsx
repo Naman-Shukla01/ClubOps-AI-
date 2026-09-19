@@ -43,13 +43,16 @@ export function ClubsView({ user, setUser, setActiveTab }) {
 
       const cu = JSON.parse(localStorage.getItem("currentUser") || "{}")
       const currentJoined = cu.joinedClubs || []
-      const updatedJoined = [...currentJoined.filter(c => c.id !== created.id), { id: created.id, name: created.name, icon: created.icon || '⭐' }]
+      const updatedJoined = [...currentJoined.filter(c => c.id !== created.id), { id: created.id, name: created.name, icon: created.icon || '⭐', isLead: true }]
       cu.joinedClubs = updatedJoined
       cu.activeClubId = created.id
       cu.activeClubName = created.name
       cu.activeClubIcon = created.icon || '⭐'
+      // Mark this user as lead organizer of the club they created
+      cu.isClubLead = true
+      cu.role = res?.userRole || 'EVENT_MANAGER'
       localStorage.setItem("currentUser", JSON.stringify(cu))
-      if (setUser) setUser(cu)
+      if (setUser) setUser({ ...cu })
       setJoinedClubs((p) => new Set([...p, created.id]))
     } catch (err) { setError(err?.message || 'Failed'); setTimeout(() => setError(''), 3000) }
     setLoading(false)
@@ -60,14 +63,17 @@ export function ClubsView({ user, setUser, setActiveTab }) {
     try { await clubService.joinClub(club.id) } catch { }
     const cu = JSON.parse(localStorage.getItem("currentUser") || "{}")
     const currentJoined = cu.joinedClubs || []
-    const updatedJoined = [...currentJoined.filter(c => c.id !== club.id), { id: club.id, name: club.name, icon: club.icon || '🏛️' }]
+    const updatedJoined = [...currentJoined.filter(c => c.id !== club.id), { id: club.id, name: club.name, icon: club.icon || '🏛️', isLead: false }]
     cu.joinedClubs = updatedJoined
     cu.activeClubId = club.id
     cu.activeClubName = club.name
     cu.activeClubIcon = club.icon || '🏛️'
     cu.members = (cu.members || 0) + 1
+    // Joining = volunteer, NOT lead organizer
+    cu.isClubLead = false
+    cu.role = cu.role === 'EVENT_MANAGER' ? 'EVENT_MANAGER' : 'VOLUNTEER'
     localStorage.setItem("currentUser", JSON.stringify(cu))
-    if (setUser) setUser(cu)
+    if (setUser) setUser({ ...cu })
     setJoinedClubs((p) => new Set([...p, club.id]))
     setClubs((p) => p.map((c) => c.id === club.id ? { ...c, members: c.members + 1 } : c))
     setActionLoading(null)

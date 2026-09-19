@@ -2,8 +2,9 @@ import { apiRequest } from './api.js'
 
 const toData = (payload) => payload?.data ?? payload ?? []
 
-export const getEvents = async () => {
-  const res = await apiRequest('/events', { method: 'GET' })
+export const getEvents = async (clubId) => {
+  const url = clubId ? `/events?clubId=${clubId}` : '/events'
+  const res = await apiRequest(url, { method: 'GET' })
   return toData(res)
 }
 
@@ -28,15 +29,28 @@ export const createEvent = async (data) => {
   return toData(res)
 }
 
+export const updateEvent = async (id, data) => {
+  const res = await apiRequest(`/events/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  })
+  return toData(res)
+}
+
+export const deleteEvent = async (id) => {
+  const res = await apiRequest(`/events/${id}`, { method: 'DELETE' })
+  return toData(res)
+}
+
 export const getDocuments = async () => {
   const res = await apiRequest('/documents', { method: 'GET' })
   return toData(res)
 }
 
-export const uploadDocument = async (data) => {
+export const uploadDocument = async (formData) => {
   const res = await apiRequest('/documents', {
     method: 'POST',
-    body: JSON.stringify(data),
+    body: formData,
   })
   return toData(res)
 }
@@ -73,4 +87,12 @@ export const generateAnnouncement = async (data) => {
   return res
 }
 
-export const dev2Service = { getEvents, getMeetings, createMeeting, createEvent, getDocuments, uploadDocument, getRisks, parseTranscript, analyzeRisks, generateAnnouncement }
+export const postAiChat = async (prompt, eventId) => {
+  const res = await apiRequest('/ai/chat', {
+    method: 'POST',
+    body: JSON.stringify({ prompt, eventId }),
+  })
+  return res
+}
+
+export const dev2Service = { getEvents, getMeetings, createMeeting, createEvent, updateEvent, deleteEvent, getDocuments, uploadDocument, getRisks, parseTranscript, analyzeRisks, generateAnnouncement, postAiChat }
