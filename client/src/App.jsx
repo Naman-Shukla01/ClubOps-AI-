@@ -1,64 +1,75 @@
-import React, { useState, useEffect } from 'react'
-import { Sidebar } from './components/layout/Sidebar'
-import { Header } from './components/layout/Header'
-import { DocumentsAndRisksView } from './views/DocumentsAndRisksView'
-import { DashboardView } from './views/DashboardView'
-import { TasksView } from './views/TasksView'
-import { VolunteersView } from './views/VolunteersView'
-import { MeetingsView } from './views/MeetingsView'
-import { EventsView } from './views/EventsView'
-import { AnnouncementsView } from './views/AnnouncementsView'
-import Login from './pages/Login'
-import ProfileModal from './components/layout/ProfileModal'
-import ActionCopilotBar from './components/actions/ActionCopilotBar'
-
-const TABS = [
-  { id: 'dashboard', label: 'Dashboard', icon: '📊' },
-  { id: 'documents', label: 'Documents & Risks', icon: '📁' },
-  { id: 'tasks', label: 'Tasks', icon: '✅' },
-  { id: 'volunteers', label: 'Volunteers', icon: '👥' },
-  { id: 'meetings', label: 'Meetings', icon: '🎙️' },
-  { id: 'events', label: 'Events', icon: '📅' },
-  { id: 'announcements', label: 'Announcements', icon: '📢' },
-]
+import { useState, useEffect } from "react";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import Login from "./pages/Login";
+import Registration from "./pages/Registration";
+import Sidebar from "./components/layout/Sidebar";
+import { Header } from "./components/layout/Header";
+import ProfileModal from "./components/layout/ProfileModal";
+import { DashboardView } from "./views/DashboardView";
+import { DocumentsAndRisksView } from "./views/DocumentsAndRisksView";
+import { TasksView } from "./views/TasksView";
+import { VolunteersView } from "./views/VolunteersView";
+import { MeetingsView } from "./views/MeetingsView";
+import { EventsView } from "./views/EventsView";
+import { AnnouncementsView } from "./views/AnnouncementsView";
+import { ClubsView } from "./views/ClubsView";
 
 export default function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
-  const [activeTab, setActiveTab] = useState('documents')
-  const [newTaskId, setNewTaskId] = useState(null)
-  const [showProfile, setShowProfile] = useState(false)
-  const [loggedInUser, setLoggedInUser] = useState({ name: 'Arjun Mehta', role: 'Event Lead', email: 'arjun@org.com' })
+  const [user, setUser] = useState(null);
+  const [activeTab, setActiveTab] = useState("Dashboard");
+  const [profileOpen, setProfileOpen] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem('user')
-    if (saved) { setIsLoggedIn(true); setLoggedInUser(JSON.parse(saved)) }
-  }, [])
+    // Clear saved session on fresh launch so the first page is always Login
+    localStorage.removeItem("currentUser");
+    setUser(null);
+  }, []);
 
-  if (!isLoggedIn) return <Login onLogin={(u) => { setLoggedInUser(u); setIsLoggedIn(true) }} />
+  const handleLogout = () => {
+    localStorage.removeItem("currentUser");
+    setUser(null);
+    setActiveTab("Dashboard");
+  };
+
+  const renderView = () => {
+    switch (activeTab) {
+      case "Dashboard": return <DashboardView user={user} setActiveTab={setActiveTab} />;
+      case "Clubs": return <ClubsView user={user} setUser={setUser} setActiveTab={setActiveTab} />;
+      case "Events": return <EventsView user={user} setUser={setUser} />;
+      case "Tasks": return <TasksView user={user} setUser={setUser} />;
+      case "Announcements": return <AnnouncementsView user={user} setUser={setUser} />;
+      case "Volunteers": return <VolunteersView user={user} />;
+      case "Documents & Risks": return <DocumentsAndRisksView />;
+      case "Meetings": return <MeetingsView />;
+      default: return <DashboardView user={user} setActiveTab={setActiveTab} />;
+    }
+  };
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar
-        user={loggedInUser}
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        tabs={TABS}
-        onProfileClick={() => setShowProfile(true)}
-        onLogout={() => { localStorage.removeItem('user'); window.location.reload() }}
-      />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <Header />
-        <main className="flex-1 overflow-y-auto p-6">
-          {activeTab === 'dashboard' && <DashboardView />}
-          {activeTab === 'documents' && <DocumentsAndRisksView />}
-          {activeTab === 'tasks' && <TasksView key={newTaskId || 'default'} />}
-          {activeTab === 'volunteers' && <VolunteersView />}
-          {activeTab === 'meetings' && <MeetingsView />}
-          {activeTab === 'events' && <EventsView />}
-          {activeTab === 'announcements' && <AnnouncementsView />}
-        </main>
-      </div>
-      {showProfile && <ProfileModal user={loggedInUser} onClose={() => setShowProfile(false)} />}
-    </div>
-  )
+    <Router>
+      <Routes>
+        <Route path="/register" element={<Registration onRegister={(u) => { setUser(u); localStorage.setItem("currentUser", JSON.stringify(u)); }} />} />
+        <Route path="/login" element={<Login onLogin={(u) => { setUser(u); localStorage.setItem("currentUser", JSON.stringify(u)); }} />} />
+        <Route
+          path="*"
+          element={
+            !user ? (
+              <Login onLogin={(u) => { setUser(u); localStorage.setItem("currentUser", JSON.stringify(u)); }} />
+            ) : (
+              <div className="flex h-screen" style={{ background: "#0a0a0f" }}>
+                <Sidebar user={user} setUser={setUser} activeTab={activeTab} setActiveTab={setActiveTab} onLogout={handleLogout} />
+                <div className="flex-1 flex flex-col overflow-hidden">
+                  <Header user={user} setUser={setUser} onProfileClick={() => setProfileOpen(true)} />
+                  <main className="flex-1 overflow-auto p-6" style={{ color: "#e5e5e5" }}>
+                    {renderView()}
+                  </main>
+                </div>
+                {profileOpen && <ProfileModal user={user} onClose={() => setProfileOpen(false)} />}
+              </div>
+            )
+          }
+        />
+      </Routes>
+    </Router>
+  );
 }

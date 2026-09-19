@@ -34,7 +34,7 @@ export default function ActionCopilotBar({ onTaskCreated }) {
 
   const startEdit = () => { setEditForm({ ...createdTask }); setEditing(true) }
   const saveEdit = async () => {
-    try { await dev1Service.updateTask(createdTask.id, editForm) } catch { console.error(e) }
+    try { await dev1Service.updateTask(createdTask.id, editForm) } catch { }
     setCreatedTask({ ...createdTask, ...editForm })
     setEditing(false)
   }
