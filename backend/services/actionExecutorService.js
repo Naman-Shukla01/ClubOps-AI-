@@ -43,18 +43,24 @@ function parseNaturalDate(dateString) {
 /**
  * Resolve or create a User by name/email
  */
-async function resolveUser(nameOrEmail) {
+async function resolveUser(nameOrEmail, clubId) {
   if (!nameOrEmail || typeof nameOrEmail !== 'string') return null;
   const cleanName = nameOrEmail.trim();
   if (!cleanName) return null;
 
-  let user = await User.findOne({
+  const query = {
     $or: [
       { name: { $regex: new RegExp(`^${cleanName}$`, 'i') } },
       { email: { $regex: new RegExp(`^${cleanName}$`, 'i') } },
       { name: { $regex: new RegExp(cleanName, 'i') } }
     ]
-  });
+  };
+
+  if (clubId && mongoose.isValidObjectId(clubId)) {
+    query.club = clubId;
+  }
+
+  let user = await User.findOne(query);
 
   if (!user) {
     const sanitizedEmail = `${cleanName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'user'}@clubops.ai`;
@@ -67,7 +73,8 @@ async function resolveUser(nameOrEmail) {
     user = await User.create({
       name: cleanName,
       email: uniqueEmail,
-      role: 'volunteer'
+      role: 'volunteer',
+      club: (clubId && mongoose.isValidObjectId(clubId)) ? clubId : undefined,
     });
   }
 
@@ -77,26 +84,31 @@ async function resolveUser(nameOrEmail) {
 /**
  * Resolve or get default Event
  */
-async function resolveEvent(eventId, eventName) {
+async function resolveEvent(eventId, eventName, clubId) {
   if (eventId && mongoose.Types.ObjectId.isValid(eventId)) {
     const event = await Event.findById(eventId);
     if (event) return event;
   }
 
+  const query = {};
+  if (clubId && mongoose.isValidObjectId(clubId)) {
+    query.club = clubId;
+  }
+
   if (eventName) {
-    const event = await Event.findOne({
-      name: { $regex: new RegExp(eventName, 'i') }
-    });
+    query.name = { $regex: new RegExp(eventName, 'i') };
+    const event = await Event.findOne(query);
     if (event) return event;
   }
 
   // Fallback to the latest active/planning event
   let defaultEvent = await Event.findOne({
+    ...query,
     status: { $in: ['planning', 'upcoming', 'ongoing'] }
   }).sort({ createdAt: -1 });
 
   if (!defaultEvent) {
-    defaultEvent = await Event.findOne().sort({ createdAt: -1 });
+    defaultEvent = await Event.findOne(query).sort({ createdAt: -1 });
   }
 
   if (!defaultEvent) {
@@ -112,6 +124,7 @@ async function resolveEvent(eventId, eventName) {
       startDate: new Date(),
       endDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
       status: 'planning',
+      club: (clubId && mongoose.isValidObjectId(clubId)) ? clubId : null,
       createdBy: defaultAdmin._id
     });
   }
@@ -176,11 +189,11 @@ function parseIntentHeuristically(prompt) {
 
   // Generic fallback query
   return {
-    reasoning: "Failed to parse a specific command, defaulting to general chat.",
+    reasoning: "AI Service is temporarily unavailable. Using offline basic parser.",
     actions: [{
       action: 'GENERAL_CHAT',
       targetEntity: 'None',
-      conversationalResponse: `I received your command: "${text}". I can help assign tasks, update deadlines, track risks, and generate analytics.`
+      conversationalResponse: `The AI is currently experiencing high demand and is unavailable. I am running in basic offline mode and did not understand your command. Try simple commands like 'Create a task for Alex' or try again in a few moments.`
     }]
   };
 }
@@ -289,7 +302,8 @@ Rules:
 2. Output your reasoning first, explaining your interpretation of the user's request.
 3. Map actions to valid action enums (e.g., ASSIGN_TASK, CREATE_TASK).
 4. CRITICAL: DO NOT hallucinate tasks, assignees, or deadlines based on the "Current System Context" if they are not explicitly requested by the user or present in the provided text. The System Context is ONLY for resolving names and entities, NOT for inventing work. If the user provides a text/transcript with no actionable tasks, output a GENERAL_CHAT action explaining that no tasks were found.
-5. Output an overall response summarizing everything, and return the array of actions to execute.`;
+5. EXTREMELY CRITICAL: You MUST explicitly extract priority levels (low, medium, high, critical) and severity levels (low, medium, high, critical) into the 'priority' and 'severity' fields when mentioned by the user. Do not omit these fields if a priority or severity is specified.
+6. Output an overall response summarizing everything, and return the array of actions to execute.`;
 
   try {
     const aiResult = await generateStructuredResponse({
@@ -314,10 +328,13 @@ export async function executeChatAction({ prompt, eventId, userId, clubId }) {
   }
 
   // 1. Gather context from DB
+  const taskQuery = (clubId && mongoose.isValidObjectId(clubId)) ? { club: clubId } : {};
+  const userQuery = (clubId && mongoose.isValidObjectId(clubId)) ? { club: clubId } : {};
+
   const [activeEvent, sampleTasks, sampleUsers, recentMeetings] = await Promise.all([
-    resolveEvent(eventId),
-    Task.find().sort({ updatedAt: -1 }).limit(10).select('title status priority'),
-    User.find().limit(10).select('name email role'),
+    resolveEvent(eventId, null, clubId),
+    Task.find(taskQuery).sort({ updatedAt: -1 }).limit(10).select('title status priority'),
+    User.find(userQuery).limit(10).select('name email role'),
     Meeting.find(eventId ? { event: eventId } : {}).sort({ updatedAt: -1 }).limit(3).select('title summary rawTranscript')
   ]);
 
@@ -381,7 +398,7 @@ export async function executeChatAction({ prompt, eventId, userId, clubId }) {
         }
 
         if (details.assigneeName) {
-          const user = await resolveUser(details.assigneeName);
+          const user = await resolveUser(details.assigneeName, clubId);
           if (user) {
             task.owner = user._id;
           }
@@ -413,7 +430,7 @@ export async function executeChatAction({ prompt, eventId, userId, clubId }) {
         let ownerId = null;
 
         if (details.assigneeName) {
-          const user = await resolveUser(details.assigneeName);
+          const user = await resolveUser(details.assigneeName, clubId);
           ownerId = user?._id;
         }
 
@@ -469,7 +486,7 @@ export async function executeChatAction({ prompt, eventId, userId, clubId }) {
 
       case 'CREATE_EVENT': {
         const details = actionItem.eventDetails || {};
-        const defaultUser = (await User.findOne()) || (await resolveUser('Club Lead'));
+        const defaultUser = (await User.findOne()) || (await resolveUser('Club Lead', clubId));
 
         const newEvent = await Event.create({
           name: details.name || 'New Event',

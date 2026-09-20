@@ -22,10 +22,11 @@ export function TranscriptInput({ onResult, meetingId }) {
         decisions.length ? `Decisions: ${decisions.join('; ')}` : '',
         actionItems.length ? `Action items: ${actionItems.join('; ')}` : '',
       ].filter(Boolean).join('\n\n')
-      setResult(details || 'Analysis complete. Action items extracted.')
+      setResult(details || (tasks.length > 0 ? 'Analysis complete. Action items extracted.' : 'Analysis complete. No action items found in this text.'))
       if (onResult) onResult(tasks)
-    } catch {
-      setResult('Analysis complete. Action items extracted.')
+    } catch (err) {
+      console.error('Failed to parse transcript:', err)
+      setResult('Analysis failed. Ensure the backend is running and try again.')
     }
     setLoading(false)
   }

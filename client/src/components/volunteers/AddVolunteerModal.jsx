@@ -2,13 +2,15 @@ import React, { useEffect, useState } from "react";
 
 export function AddVolunteerModal({
   volunteer,
+  clubs = [],
+  activeClubId = null,
   onClose,
   onAdd,
 }) {
   const [name, setName] = useState("");
-  const [role, setRole] =
-    useState("Volunteer");
+  const [role, setRole] = useState("Volunteer");
   const [team, setTeam] = useState("");
+  const [selectedClub, setSelectedClub] = useState(activeClubId || (clubs.length > 0 ? clubs[0]._id || clubs[0].id : ""));
 
   const isEditing = Boolean(volunteer);
 
@@ -32,12 +34,14 @@ export function AddVolunteerModal({
         volunteer.field ||
         ""
       );
+      setSelectedClub(volunteer.club?.id || volunteer.club || activeClubId || (clubs.length > 0 ? clubs[0]._id || clubs[0].id : ""));
     } else {
       setName("");
       setRole("Volunteer");
       setTeam("");
+      setSelectedClub(activeClubId || (clubs.length > 0 ? clubs[0]._id || clubs[0].id : ""));
     }
-  }, [volunteer]);
+  }, [volunteer, activeClubId, clubs]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -54,6 +58,7 @@ export function AddVolunteerModal({
       name: name.trim(),
       role: role.trim() || "Volunteer",
       team: team.trim(),
+      clubId: selectedClub,
     });
   };
 
@@ -173,6 +178,28 @@ export function AddVolunteerModal({
               }}
             />
 
+          </div>
+
+          {/* Club Selection */}
+          <div>
+            <label className="block text-sm text-gray-300 mb-2">
+              Assign to Club
+            </label>
+            <select
+              value={selectedClub}
+              onChange={(e) => setSelectedClub(e.target.value)}
+              className="w-full px-3 py-2.5 rounded-lg text-white outline-none"
+              style={{
+                background: "#0a0a0f",
+                border: "1px solid #272733",
+              }}
+            >
+              {clubs.map((c) => (
+                <option key={c._id || c.id} value={c._id || c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Buttons */}

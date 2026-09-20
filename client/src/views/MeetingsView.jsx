@@ -27,7 +27,7 @@ export function MeetingsView({ user }) {
           })))} />
         </div>
         <div className="col-span-1">
-          <ExtractedActions actions={extractedActions || undefined} />
+          <ExtractedActions actions={extractedActions || undefined} clubId={user?.activeClubId} eventId={meetings[0]?.event} />
         </div>
         <div className="col-span-1 h-full">
           <AiChatAssistant eventId={meetings[0]?.event} clubId={user?.activeClubId} />
