@@ -8,8 +8,11 @@ export const getEvents = async (clubId) => {
   return toData(res)
 }
 
-export const getMeetings = async () => {
-  const res = await apiRequest('/meetings', { method: 'GET' })
+export const getMeetings = async (clubId) => {
+  const query = typeof clubId === 'object' 
+    ? (clubId?.eventId ? `?eventId=${clubId.eventId}` : clubId?.clubId ? `?clubId=${clubId.clubId}` : '')
+    : (clubId && clubId !== '1' ? `?clubId=${clubId}` : '')
+  const res = await apiRequest(`/meetings${query}`, { method: 'GET' })
   return toData(res)
 }
 

@@ -28,10 +28,13 @@ function normalizeMeeting(meeting) {
 
 router.get('/', async (req, res, next) => {
   try {
-    const { eventId } = req.query;
+    const { eventId, clubId } = req.query;
     const filter = {};
     if (eventId && mongoose.isValidObjectId(eventId)) {
       filter.event = eventId;
+    } else if (clubId && mongoose.isValidObjectId(clubId)) {
+      const eventIds = await Event.find({ club: clubId }).distinct('_id');
+      filter.event = { $in: eventIds };
     }
     const meetings = await Meeting.find(filter).sort({ createdAt: -1 }).lean();
     res.status(200).json({
