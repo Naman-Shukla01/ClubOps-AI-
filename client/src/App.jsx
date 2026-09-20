@@ -3,6 +3,7 @@ import {
   BrowserRouter as Router,
   Routes,
   Route,
+  Navigate,
 } from "react-router-dom";
 
 import Login from "./pages/Login";
@@ -13,6 +14,8 @@ import { Header } from "./components/layout/Header";
 import ProfileModal from "./components/layout/ProfileModal";
 
 import { DashboardView } from "./views/DashboardView";
+import { DocumentsView } from "./views/DocumentsView";
+import { RisksView } from "./views/RisksView";
 import { DocumentsAndRisksView } from "./views/DocumentsAndRisksView";
 import { TasksView } from "./views/TasksView";
 import { VolunteersView } from "./views/VolunteersView";
@@ -155,9 +158,25 @@ export default function App() {
           />
         );
 
+      case "Documents":
+        return (
+          <DocumentsView
+            user={user}
+          />
+        );
+
+      case "Risks":
+        return (
+          <RisksView
+            user={user}
+          />
+        );
+
       case "Documents & Risks":
         return (
-          <DocumentsAndRisksView />
+          <DocumentsView
+            user={user}
+          />
         );
 
       case "Meetings":
@@ -186,18 +205,19 @@ export default function App() {
         <Route
           path="/register"
           element={
-            <Registration
-              onRegister={(newUser) => {
-
-                setUser(newUser);
-
-                localStorage.setItem(
-                  "currentUser",
-                  JSON.stringify(newUser)
-                );
-
-              }}
-            />
+            user ? (
+              <Navigate to="/" replace />
+            ) : (
+              <Registration
+                onRegister={(newUser) => {
+                  setUser(newUser);
+                  localStorage.setItem(
+                    "currentUser",
+                    JSON.stringify(newUser)
+                  );
+                }}
+              />
+            )
           }
         />
 
@@ -205,18 +225,19 @@ export default function App() {
         <Route
           path="/login"
           element={
-            <Login
-              onLogin={(loggedUser) => {
-
-                setUser(loggedUser);
-
-                localStorage.setItem(
-                  "currentUser",
-                  JSON.stringify(loggedUser)
-                );
-
-              }}
-            />
+            user ? (
+              <Navigate to="/" replace />
+            ) : (
+              <Login
+                onLogin={(loggedUser) => {
+                  setUser(loggedUser);
+                  localStorage.setItem(
+                    "currentUser",
+                    JSON.stringify(loggedUser)
+                  );
+                }}
+              />
+            )
           }
         />
 

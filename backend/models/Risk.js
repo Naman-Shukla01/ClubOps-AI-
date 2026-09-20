@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 const riskSchema = new mongoose.Schema(
   {
     event: { type: mongoose.Schema.Types.ObjectId, ref: 'Event', required: true, index: true },
+    club: { type: mongoose.Schema.Types.ObjectId, ref: 'Club', index: true },
     type: {
       type: String,
       enum: ['deadline', 'resource', 'volunteer', 'dependency', 'communication', 'logistics', 'other'],

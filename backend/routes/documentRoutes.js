@@ -1,20 +1,56 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import multer from 'multer';
-import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
-const pdfParse = require('pdf-parse');
+import { PDFParse } from 'pdf-parse';
 import Document from '../models/Document.js';
+import Club from '../models/Club.js';
 import Event from '../models/Event.js';
 import Task from '../models/Task.js';
 import User from '../models/User.js';
 import Risk from '../models/Risk.js';
 import { AppError } from '../middleware/errorMiddleware.js';
 import { ROLES } from '../middleware/authMiddleware.js';
-import { parseDocumentText } from '../services/documentParserService.js';
+import { parseDocumentText, queryDocumentText } from '../services/documentParserService.js';
 
 const router = express.Router();
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } }); // 10MB limit
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } }); // 15MB limit
+
+async function extractPdfTextFromBuffer(buffer) {
+  if (!buffer || buffer.length === 0) return '';
+  try {
+    const parser = new PDFParse({ data: buffer });
+    await parser.load();
+    const result = await parser.getText();
+    if (typeof result === 'string' && result.trim()) {
+      return result.trim();
+    }
+    if (result && typeof result.text === 'string' && result.text.trim()) {
+      return result.text.trim();
+    }
+    if (Array.isArray(result?.pages)) {
+      const pageText = result.pages.map((p) => p.text || '').join('\n').trim();
+      if (pageText) return pageText;
+    }
+  } catch (err) {
+    console.warn('PDFParse failed, attempting clean stream text extraction:', err.message);
+  }
+
+  // Fallback: extract string literals inside PDF PostScript (clean text chunks)
+  try {
+    const str = buffer.toString('latin1');
+    const matches = str.match(/\(([^)]{2,})\)/g) || [];
+    const extracted = matches
+      .map((m) => m.slice(1, -1).trim())
+      .filter((s) => !/^[0-9\s\W_]+$/.test(s) && !/^(Chromium|Skia\/PDF|D:\d+|Normal|DeviceRGB|Filter|FlateDecode|Font|ProcSet)/i.test(s) && s.length > 2);
+    if (extracted.length > 0) {
+      return extracted.join(' ');
+    }
+  } catch (e) {
+    console.warn('Fallback stream text extraction failed:', e.message);
+  }
+
+  return '';
+}
 
 function normalizeDocument(document) {
   const doc = document?.toObject ? document.toObject() : document;
@@ -23,8 +59,10 @@ function normalizeDocument(document) {
     title: doc.title || 'Untitled document',
     description: doc.description || '',
     type: doc.type || 'PDF',
+    fileUrl: doc.fileUrl || '',
     content: doc.content || '',
     aiAnalysis: doc.aiAnalysis || null,
+    club: doc.club || null,
     event: doc.event || null,
     uploadedBy: doc.uploadedBy || null,
     createdAt: doc.createdAt,
@@ -41,7 +79,7 @@ async function findUserByName(name) {
   return User.findOne({ name: new RegExp(`^${escapeRegex(name)}$`, 'i') }).select('_id name');
 }
 
-async function saveTasks(tasks, document, eventId) {
+async function saveTasks(tasks, document, eventId, clubId) {
   if (!tasks || !tasks.length) return [];
   
   const existingTasks = await Task.find({ event: eventId }).select('_id title');
@@ -60,6 +98,7 @@ async function saveTasks(tasks, document, eventId) {
     const owner = await findUserByName(task.owner);
     const createdTask = await Task.create({
       event: eventId,
+      club: clubId || undefined,
       title: task.title,
       description: task.description,
       owner: owner?._id,
@@ -75,7 +114,7 @@ async function saveTasks(tasks, document, eventId) {
   return savedTasks;
 }
 
-async function saveRisks(risks, document, eventId) {
+async function saveRisks(risks, document, eventId, clubId) {
   if (!risks || !risks.length) return [];
   
   const existingRisks = await Risk.find({ event: eventId }).select('_id title');
@@ -93,6 +132,7 @@ async function saveRisks(risks, document, eventId) {
 
     const createdRisk = await Risk.create({
       event: eventId,
+      club: clubId || undefined,
       title: risk.title,
       description: risk.description,
       severity: risk.severity,
@@ -108,9 +148,26 @@ async function saveRisks(risks, document, eventId) {
   return savedRisks;
 }
 
+// GET /api/documents - List documents with optional ?clubId= and ?eventId=
 router.get('/', async (req, res, next) => {
   try {
-    const documents = await Document.find().populate('event', 'name').populate('uploadedBy', 'name email role').sort({ createdAt: -1 });
+    const { clubId, eventId } = req.query;
+    const filter = {};
+
+    if (clubId && mongoose.isValidObjectId(String(clubId))) {
+      filter.club = clubId;
+    }
+
+    if (eventId && mongoose.isValidObjectId(String(eventId))) {
+      filter.event = eventId;
+    }
+
+    const documents = await Document.find(filter)
+      .populate('event', 'name startDate endDate')
+      .populate('club', 'name icon')
+      .populate('uploadedBy', 'name email role')
+      .sort({ createdAt: -1 });
+
     res.status(200).json({
       success: true,
       data: documents.map(normalizeDocument),
@@ -120,9 +177,36 @@ router.get('/', async (req, res, next) => {
   }
 });
 
+// GET /api/documents/:id - Single document view
+router.get('/:id', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      throw new AppError('Invalid document ID', 400);
+    }
+
+    const doc = await Document.findById(id)
+      .populate('event', 'name startDate endDate')
+      .populate('club', 'name icon')
+      .populate('uploadedBy', 'name email role');
+
+    if (!doc) {
+      throw new AppError('Document not found', 404);
+    }
+
+    res.status(200).json({
+      success: true,
+      data: normalizeDocument(doc),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/documents - Upload document (Club Head Only)
 router.post('/', upload.single('file'), async (req, res, next) => {
   try {
-    const { event, title, description, type } = req.body || {};
+    const { event, club, title, description, type } = req.body || {};
 
     if (!event || !mongoose.isValidObjectId(String(event))) {
       throw new AppError('event is required and must be a valid ObjectId', 400);
@@ -131,6 +215,28 @@ router.post('/', upload.single('file'), async (req, res, next) => {
     const eventDoc = await Event.findById(event);
     if (!eventDoc) {
       throw new AppError('Event not found', 404);
+    }
+
+    const resolvedClubId = club && mongoose.isValidObjectId(String(club))
+      ? club
+      : eventDoc.club;
+
+    let clubDoc = null;
+    if (resolvedClubId) {
+      clubDoc = await Club.findById(resolvedClubId);
+    }
+
+    // Role check: Only club head / admin / event manager can upload
+    const userRole = req.user?.role;
+    const rawRole = req.user?.user?.role;
+    const isClubHead =
+      (clubDoc && String(clubDoc.head) === String(req.user.id)) ||
+      userRole === ROLES.ADMIN ||
+      userRole === ROLES.EVENT_MANAGER ||
+      rawRole === 'club-head';
+
+    if (!isClubHead) {
+      throw new AppError('Forbidden: Only the head of the club can upload documents', 403);
     }
 
     if (!title || typeof title !== 'string' || !title.trim()) {
@@ -142,42 +248,50 @@ router.post('/', upload.single('file'), async (req, res, next) => {
     let fileType = type || 'PDF';
 
     if (req.file) {
-      const mimetype = req.file.mimetype;
-      if (mimetype === 'application/pdf') {
-        const pdfData = await pdfParse(req.file.buffer);
-        extractedText = pdfData.text;
+      const mimetype = req.file.mimetype || '';
+      const originalName = req.file.originalname || '';
+
+      if (mimetype === 'application/pdf' || originalName.toLowerCase().endsWith('.pdf')) {
+        extractedText = await extractPdfTextFromBuffer(req.file.buffer);
         fileType = 'PDF';
-      } else if (mimetype === 'text/plain') {
+      } else if (mimetype === 'text/plain' || originalName.toLowerCase().endsWith('.txt')) {
         extractedText = req.file.buffer.toString('utf-8');
         fileType = 'TXT';
+      } else {
+        extractedText = req.file.buffer.toString('utf-8');
+        fileType = 'DOC';
       }
-      // Depending on other requirements, we can add docx parsing here
     }
 
     const doc = await Document.create({
       event: eventDoc._id,
+      club: clubDoc ? clubDoc._id : eventDoc.club || undefined,
       title: title.trim(),
       description: description || '',
       type: fileType,
-      content: extractedText.substring(0, 1000), // Only save a preview of content to DB
+      content: extractedText,
       uploadedBy: req.user.id,
     });
     
     let createdTasks = [];
     let createdRisks = [];
-    if (extractedText) {
-       parsedData = await parseDocumentText(extractedText);
+    if (extractedText && extractedText.trim()) {
+       parsedData = await parseDocumentText(extractedText, doc.title);
        if (parsedData) {
          if (parsedData.tasks) {
-           createdTasks = await saveTasks(parsedData.tasks, doc, eventDoc._id);
+           createdTasks = await saveTasks(parsedData.tasks, doc, eventDoc._id, doc.club);
          }
          if (parsedData.risks) {
-           createdRisks = await saveRisks(parsedData.risks, doc, eventDoc._id);
+           createdRisks = await saveRisks(parsedData.risks, doc, eventDoc._id, doc.club);
          }
          doc.aiAnalysis = {
            summary: parsedData.summary || '',
+           keyPoints: parsedData.keyPoints || [],
            tasks: parsedData.tasks || [],
-           risks: parsedData.risks || []
+           risks: parsedData.risks || [],
+           actionItems: parsedData.actionItems || [],
+           importantDates: parsedData.importantDates || [],
+           sentiment: parsedData.sentiment || 'neutral'
          };
          await doc.save();
        }
@@ -195,4 +309,108 @@ router.post('/', upload.single('file'), async (req, res, next) => {
   }
 });
 
+// POST /api/documents/:id/summarize - On-demand AI Summarization (Any joined member)
+router.post('/:id/summarize', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      throw new AppError('Invalid document ID', 400);
+    }
+
+    const doc = await Document.findById(id).populate('event').populate('club');
+    if (!doc) {
+      throw new AppError('Document not found', 404);
+    }
+
+    const textToSummarize = doc.content || doc.description || doc.title;
+    const aiAnalysis = await parseDocumentText(textToSummarize, doc.title);
+
+    doc.aiAnalysis = {
+      summary: aiAnalysis.summary || '',
+      keyPoints: aiAnalysis.keyPoints || [],
+      tasks: aiAnalysis.tasks || [],
+      risks: aiAnalysis.risks || [],
+      actionItems: aiAnalysis.actionItems || [],
+      importantDates: aiAnalysis.importantDates || [],
+      sentiment: aiAnalysis.sentiment || 'neutral'
+    };
+    await doc.save();
+
+    res.status(200).json({
+      success: true,
+      data: normalizeDocument(doc),
+      aiAnalysis: doc.aiAnalysis
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/documents/:id/ask - Interactive Document Q&A
+router.post('/:id/ask', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { question } = req.body || {};
+
+    if (!mongoose.isValidObjectId(id)) {
+      throw new AppError('Invalid document ID', 400);
+    }
+
+    if (!question || typeof question !== 'string' || !question.trim()) {
+      throw new AppError('question is required', 400);
+    }
+
+    const doc = await Document.findById(id);
+    if (!doc) {
+      throw new AppError('Document not found', 404);
+    }
+
+    const text = doc.content || doc.description || `${doc.title}\n${doc.aiAnalysis?.summary || ''}`;
+    const result = await queryDocumentText(text, question.trim());
+
+    res.status(200).json({
+      success: true,
+      answer: result.answer,
+      relevantPoints: result.relevantPoints || []
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// DELETE /api/documents/:id - Delete Document (Club Head / Uploader / Admin)
+router.delete('/:id', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      throw new AppError('Invalid document ID', 400);
+    }
+
+    const doc = await Document.findById(id).populate('club');
+    if (!doc) {
+      throw new AppError('Document not found', 404);
+    }
+
+    const isUploader = String(doc.uploadedBy) === String(req.user.id);
+    const isHead = doc.club && String(doc.club.head) === String(req.user.id);
+    const isAdmin = req.user.role === ROLES.ADMIN || req.user.role === ROLES.EVENT_MANAGER;
+
+    if (!isUploader && !isHead && !isAdmin) {
+      throw new AppError('Forbidden: Only the document uploader or club head can delete this document', 403);
+    }
+
+    await Document.findByIdAndDelete(id);
+    await Risk.deleteMany({ sourceType: 'document', sourceId: id });
+
+    res.status(200).json({
+      success: true,
+      message: 'Document deleted successfully',
+      id
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;
+

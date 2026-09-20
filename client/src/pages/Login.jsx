@@ -19,16 +19,18 @@ export default function Login({ onLogin }) {
         // Attempt login
         res = await apiRequest('/auth/login', {
           method: 'POST',
-          body: JSON.stringify({ email, password }),
+          body: JSON.stringify({ email: email.trim(), password }),
         });
       } catch (loginErr) {
         // If login fails with 401, auto‑register to keep demo flow
         if (loginErr.status === 401) {
-          const name = email.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+          const name = email.split('@')[0]
+            .replace(/[._-]/g, ' ')
+            .replace(/\b\w/g, (c) => c.toUpperCase());
           try {
             res = await apiRequest('/auth/register', {
               method: 'POST',
-              body: JSON.stringify({ name, email, password })
+              body: JSON.stringify({ name, email: email.trim(), password }),
             });
           } catch (regErr) {
             if (regErr.status === 409) {
@@ -45,7 +47,30 @@ export default function Login({ onLogin }) {
         localStorage.setItem('accessToken', res.token);
       }
 
-      const user = res?.user || { name: email, email };
+      let user = res?.user || { name: email, email };
+
+      // Initialize default active club if not present
+      try {
+        const clubsRes = await apiRequest('/clubs', { method: 'GET' });
+        const clubsList = Array.isArray(clubsRes?.data) ? clubsRes.data : (Array.isArray(clubsRes) ? clubsRes : []);
+        if (clubsList.length > 0) {
+          const first = clubsList[0];
+          user = {
+            ...user,
+            activeClubId: user.activeClubId || first.id || first._id,
+            activeClubName: user.activeClubName || first.name,
+            activeClubIcon: user.activeClubIcon || first.icon || '🚀',
+            joinedClubs: clubsList,
+          };
+        }
+      } catch {
+        if (!user.activeClubId) {
+          user.activeClubId = '1';
+          user.activeClubName = 'Tech Innovators Club';
+          user.activeClubIcon = '💻';
+        }
+      }
+
       localStorage.setItem('currentUser', JSON.stringify(user));
       if (onLogin) onLogin(user);
       navigate('/');

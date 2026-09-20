@@ -9,7 +9,8 @@ const tabList = [
   "Tasks",
   "Announcements",
   "Volunteers",
-  "Documents & Risks",
+  "Documents",
+  "Risks",
   "Meetings",
 ];
 
@@ -362,6 +363,10 @@ function getIcon(tab) {
   const icons = {
 
     Dashboard: "📊",
+
+    Documents: "📁",
+
+    Risks: "⚠️",
 
     "Documents & Risks": "📄",
 

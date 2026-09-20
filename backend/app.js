@@ -33,6 +33,10 @@ const allowedOrigins = allowedOrigin === '*'
       'http://127.0.0.1:3000',
       'http://localhost:5173',
       'http://127.0.0.1:5173',
+      'http://localhost:5174',
+      'http://127.0.0.1:5174',
+      'http://localhost:5175',
+      'http://127.0.0.1:5175',
     ]);
 
 app.use(cors({
@@ -64,6 +68,25 @@ app.use(session({
 }));
 app.use(passport.initialize());
 app.use(express.json({ limit: '1mb' }));
+
+app.get('/', (req, res) => {
+  res.json({
+    success: true,
+    message: '🚀 ClubOps AI Backend Server is running successfully!',
+    frontendUrl: 'http://localhost:3000',
+    endpoints: {
+      health: 'GET /api/health',
+      auth: '/api/auth',
+      events: '/api/events',
+      tasks: '/api/tasks',
+      meetings: '/api/meetings',
+      volunteers: '/api/volunteers',
+      documents: '/api/documents',
+      risks: '/api/risks',
+      aiChat: 'POST /api/ai/chat'
+    }
+  });
+});
 
 app.get('/api/health', (req, res) => {
   res.json({
