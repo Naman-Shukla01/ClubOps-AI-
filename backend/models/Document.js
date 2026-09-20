@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 
 const documentSchema = new mongoose.Schema(
   {
-    event: { type: mongoose.Schema.Types.ObjectId, ref: 'Event', required: true, index: true },
+    event: { type: mongoose.Schema.Types.ObjectId, ref: 'Event', default: null, index: true },
     club: { type: mongoose.Schema.Types.ObjectId, ref: 'Club', index: true },
     title: { type: String, required: true, trim: true },
     description: { type: String, trim: true, default: '' },

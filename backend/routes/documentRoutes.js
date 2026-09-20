@@ -82,7 +82,8 @@ async function findUserByName(name) {
 async function saveTasks(tasks, document, eventId, clubId) {
   if (!tasks || !tasks.length) return [];
   
-  const existingTasks = await Task.find({ event: eventId }).select('_id title');
+  const filter = eventId ? { event: eventId } : clubId ? { club: clubId } : {};
+  const existingTasks = await Task.find(filter).select('_id title');
   const existingTitles = new Map(existingTasks.map((task) => [task.title.trim().toLowerCase(), task]));
   const savedTasks = [];
 
@@ -97,7 +98,7 @@ async function saveTasks(tasks, document, eventId, clubId) {
 
     const owner = await findUserByName(task.owner);
     const createdTask = await Task.create({
-      event: eventId,
+      event: eventId || undefined,
       club: clubId || undefined,
       title: task.title,
       description: task.description,
@@ -117,7 +118,8 @@ async function saveTasks(tasks, document, eventId, clubId) {
 async function saveRisks(risks, document, eventId, clubId) {
   if (!risks || !risks.length) return [];
   
-  const existingRisks = await Risk.find({ event: eventId }).select('_id title');
+  const filter = eventId ? { event: eventId } : clubId ? { club: clubId } : {};
+  const existingRisks = await Risk.find(filter).select('_id title');
   const existingTitles = new Map(existingRisks.map((risk) => [risk.title.trim().toLowerCase(), risk]));
   const savedRisks = [];
 
@@ -131,7 +133,7 @@ async function saveRisks(risks, document, eventId, clubId) {
     }
 
     const createdRisk = await Risk.create({
-      event: eventId,
+      event: eventId || undefined,
       club: clubId || undefined,
       title: risk.title,
       description: risk.description,
@@ -203,40 +205,42 @@ router.get('/:id', async (req, res, next) => {
   }
 });
 
-// POST /api/documents - Upload document (Club Head Only)
+// POST /api/documents - Upload document (Club Head / Admin Only)
 router.post('/', upload.single('file'), async (req, res, next) => {
   try {
     const { event, club, title, description, type } = req.body || {};
 
-    if (!event || !mongoose.isValidObjectId(String(event))) {
-      throw new AppError('event is required and must be a valid ObjectId', 400);
+    let eventDoc = null;
+    let resolvedClubId = club && mongoose.isValidObjectId(String(club)) ? club : null;
+
+    if (event && mongoose.isValidObjectId(String(event))) {
+      eventDoc = await Event.findById(event);
+      if (eventDoc && !resolvedClubId) {
+        resolvedClubId = eventDoc.club;
+      }
     }
 
-    const eventDoc = await Event.findById(event);
-    if (!eventDoc) {
-      throw new AppError('Event not found', 404);
+    if (!resolvedClubId && req.user?.club) {
+      resolvedClubId = req.user.club;
     }
-
-    const resolvedClubId = club && mongoose.isValidObjectId(String(club))
-      ? club
-      : eventDoc.club;
 
     let clubDoc = null;
-    if (resolvedClubId) {
+    if (resolvedClubId && mongoose.isValidObjectId(String(resolvedClubId))) {
       clubDoc = await Club.findById(resolvedClubId);
     }
 
     // Role check: Only club head / admin / event manager can upload
-    const userRole = req.user?.role;
-    const rawRole = req.user?.user?.role;
+    const userRole = (req.user?.role || req.user?.user?.role || '').toLowerCase();
+    const userId = req.user?.id || req.user?._id;
     const isClubHead =
-      (clubDoc && String(clubDoc.head) === String(req.user.id)) ||
-      userRole === ROLES.ADMIN ||
-      userRole === ROLES.EVENT_MANAGER ||
-      rawRole === 'club-head';
+      (clubDoc && String(clubDoc.head) === String(userId)) ||
+      userRole === 'admin' ||
+      userRole === 'event_manager' ||
+      userRole === 'club-head' ||
+      userRole === 'lead';
 
     if (!isClubHead) {
-      throw new AppError('Forbidden: Only the head of the club can upload documents', 403);
+      throw new AppError('Forbidden: Only club leads and admins can upload documents', 403);
     }
 
     if (!title || typeof title !== 'string' || !title.trim()) {
@@ -264,13 +268,13 @@ router.post('/', upload.single('file'), async (req, res, next) => {
     }
 
     const doc = await Document.create({
-      event: eventDoc._id,
-      club: clubDoc ? clubDoc._id : eventDoc.club || undefined,
+      event: eventDoc ? eventDoc._id : null,
+      club: clubDoc ? clubDoc._id : (eventDoc?.club || resolvedClubId || undefined),
       title: title.trim(),
       description: description || '',
       type: fileType,
       content: extractedText,
-      uploadedBy: req.user.id,
+      uploadedBy: req.user?.id || req.user?._id,
     });
     
     let createdTasks = [];
@@ -279,10 +283,10 @@ router.post('/', upload.single('file'), async (req, res, next) => {
        parsedData = await parseDocumentText(extractedText, doc.title);
        if (parsedData) {
          if (parsedData.tasks) {
-           createdTasks = await saveTasks(parsedData.tasks, doc, eventDoc._id, doc.club);
+           createdTasks = await saveTasks(parsedData.tasks, doc, eventDoc?._id || null, doc.club);
          }
          if (parsedData.risks) {
-           createdRisks = await saveRisks(parsedData.risks, doc, eventDoc._id, doc.club);
+           createdRisks = await saveRisks(parsedData.risks, doc, eventDoc?._id || null, doc.club);
          }
          doc.aiAnalysis = {
            summary: parsedData.summary || '',
