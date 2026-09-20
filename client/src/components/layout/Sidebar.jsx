@@ -27,42 +27,12 @@ export default function Sidebar({
   const navigate = useNavigate();
 
   // -----------------------------------------
-  // Default clubs
-  // -----------------------------------------
-  const defaultClubsList = [
-    {
-      id: 1,
-      name: "Tech Innovators Club",
-      icon: "💻",
-    },
-    {
-      id: 2,
-      name: "Cultural Vibes",
-      icon: "🎭",
-    },
-    {
-      id: 3,
-      name: "Sports Arena",
-      icon: "⚽",
-    },
-    {
-      id: 4,
-      name: "Debate Council",
-      icon: "🎤",
-    },
-    {
-      id: 5,
-      name: "Social Impact",
-      icon: "🌍",
-    },
-  ];
-
   // -----------------------------------------
   // Joined clubs
   // -----------------------------------------
   const userJoinedIds = new Set(
     (user?.joinedClubs || []).map(
-      (club) => String(club.id)
+      (club) => String(club.id || club._id)
     )
   );
 
@@ -75,7 +45,9 @@ export default function Sidebar({
   const clubsToShow =
     user?.joinedClubs?.length > 0
       ? user.joinedClubs
-      : defaultClubsList;
+      : user?.activeClubId
+      ? [{ id: user.activeClubId, name: user.activeClubName || "Club", icon: user.activeClubIcon || "🏛️" }]
+      : [];
 
   // -----------------------------------------
   // Select club

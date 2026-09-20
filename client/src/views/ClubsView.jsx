@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { ClubCard } from '../components/clubs/ClubCard'
 import { CreateClubModal } from '../components/clubs/CreateClubModal'
-import { mockClubs } from '../data/clubData'
 import { clubService } from '../services/clubService'
 
 export function ClubsView({ user, setUser, setActiveTab }) {
@@ -25,9 +24,11 @@ export function ClubsView({ user, setUser, setActiveTab }) {
     setLoading(true)
     try {
       const res = await clubService.getClubs()
-      if (res?.data && Array.isArray(res.data)) setClubs(res.data)
-      else setClubs(mockClubs)
-    } catch { setClubs(mockClubs) }
+      const list = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : []
+      setClubs(list)
+    } catch {
+      setClubs([])
+    }
     setLoading(false)
   }
 

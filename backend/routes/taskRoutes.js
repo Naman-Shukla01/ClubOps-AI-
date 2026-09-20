@@ -103,7 +103,7 @@ router.get('/', async (req, res, next) => {
     const { clubId } = req.query;
     let query = {};
 
-    if (clubId) {
+    if (clubId && mongoose.isValidObjectId(clubId)) {
       // Find all events that belong to this club first
       const clubEvents = await Event.find({ club: clubId }).select('_id');
       const eventIds = clubEvents.map(e => e._id);
@@ -148,7 +148,7 @@ router.post('/', requireClubLead, async (req, res, next) => {
     const taskEvent = await resolveEvent(event);
     const task = await Task.create({
       event: taskEvent._id,
-      club: clubId || null,
+      club: (clubId && mongoose.isValidObjectId(clubId)) ? clubId : null,
       title: title.trim(),
       description: description || '',
       owner: await resolveOwner(owner),

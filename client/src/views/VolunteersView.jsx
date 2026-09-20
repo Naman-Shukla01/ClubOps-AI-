@@ -9,7 +9,7 @@ export function VolunteersView({ user }) {
   const [editingVolunteer, setEditingVolunteer] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const clubId = user?.activeClubId || "default";
+  const clubId = user?.activeClubId || null;
   const isClubHead = user?.role === "club-head" || user?.role === "lead" || user?.role === "EVENT_MANAGER" || user?.role === "ADMIN";
 
   useEffect(() => {

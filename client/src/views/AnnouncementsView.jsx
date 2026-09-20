@@ -33,27 +33,7 @@ export function AnnouncementsView({ user }) {
 
   const loadAnnouncements = () => {
     setLoading(true)
-
-    if (!clubId) {
-      setAnnouncements([])
-      setLoading(false)
-      return
-    }
-
-    setAnnouncements([
-      {
-        id: `${clubId}-announcement-1`,
-        title: `Welcome to ${user?.activeClubName || 'the club'}`,
-        content:
-          'Welcome everyone. Check the club dashboard for upcoming activities and tasks.',
-        channels: ['WhatsApp', 'Email'],
-        status: 'sent',
-        clubId,
-        clubName: user?.activeClubName || '',
-        createdBy: user?.name || 'Club Admin',
-        createdAt: new Date().toISOString(),
-      },
-    ])
+    setAnnouncements([])
     setLoading(false)
   }
 

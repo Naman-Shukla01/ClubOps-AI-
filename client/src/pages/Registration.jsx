@@ -36,11 +36,29 @@ export default function Registration({ onRegister }) {
         console.warn("Backend register error, using client fallback:", backendErr.message);
       }
 
-      const activeClub = {
-        id: "1",
-        name: clubName.trim() || "Tech Innovators Club",
-        icon: "💻",
-      };
+      let activeClub = null;
+      if (res?.token && (role === "club-head" || clubName.trim())) {
+        try {
+          const clubRes = await apiRequest("/clubs", {
+            method: "POST",
+            body: JSON.stringify({
+              name: clubName.trim() || `${name.trim()}'s Club`,
+              icon: "🏛️",
+              description: `Official club space for ${clubName.trim() || name.trim()}`,
+            }),
+          });
+          const createdClub = clubRes?.data || clubRes;
+          if (createdClub?.id || createdClub?._id) {
+            activeClub = {
+              id: createdClub.id || createdClub._id,
+              name: createdClub.name,
+              icon: createdClub.icon || "🏛️",
+            };
+          }
+        } catch (clubErr) {
+          console.warn("Could not create initial club record:", clubErr.message);
+        }
+      }
 
       const newUser = {
         ...(registeredUser || {}),
@@ -48,10 +66,10 @@ export default function Registration({ onRegister }) {
         name: name.trim(),
         email: email.trim(),
         role,
-        activeClubId: activeClub.id,
-        activeClubName: activeClub.name,
-        activeClubIcon: activeClub.icon,
-        joinedClubs: [activeClub],
+        activeClubId: activeClub ? activeClub.id : null,
+        activeClubName: activeClub ? activeClub.name : null,
+        activeClubIcon: activeClub ? activeClub.icon : null,
+        joinedClubs: activeClub ? [activeClub] : [],
       };
 
       localStorage.setItem("currentUser", JSON.stringify(newUser));

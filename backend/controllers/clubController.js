@@ -1,7 +1,8 @@
+import mongoose from 'mongoose';
 import Club from '../models/Club.js';
 import User from '../models/User.js';
+import Event from '../models/Event.js';
 import { AppError } from '../middleware/errorMiddleware.js';
-
 
 function normalizeClub(club) {
   const doc = club?.toObject ? club.toObject() : club;
@@ -15,7 +16,7 @@ function normalizeClub(club) {
     head: doc.head,
     members: Array.isArray(doc.members) ? doc.members.length : 0,
     maxMembers: doc.maxMembers,
-    events: 0, // In a real app we would aggregate the events count
+    events: 0,
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
   };
@@ -56,7 +57,7 @@ export const createClub = async (req, res, next) => {
     res.status(201).json({ 
       success: true, 
       data: normalizeClub(populated),
-      userRole: 'EVENT_MANAGER', // Tell the frontend about the role upgrade
+      userRole: 'EVENT_MANAGER',
     });
   } catch (error) {
     next(error);
@@ -65,6 +66,9 @@ export const createClub = async (req, res, next) => {
 
 export const getClubById = async (req, res, next) => {
   try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      throw new AppError('Club not found', 404);
+    }
     const club = await Club.findById(req.params.id).populate('head', 'name email');
     if (!club) throw new AppError('Club not found', 404);
     res.status(200).json({ success: true, data: normalizeClub(club) });
@@ -75,6 +79,9 @@ export const getClubById = async (req, res, next) => {
 
 export const joinClub = async (req, res, next) => {
   try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      throw new AppError('Club not found', 404);
+    }
     const club = await Club.findById(req.params.id);
     if (!club) throw new AppError('Club not found', 404);
     
@@ -93,6 +100,9 @@ export const joinClub = async (req, res, next) => {
 
 export const leaveClub = async (req, res, next) => {
   try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      throw new AppError('Club not found', 404);
+    }
     const club = await Club.findById(req.params.id);
     if (!club) throw new AppError('Club not found', 404);
     
@@ -100,6 +110,58 @@ export const leaveClub = async (req, res, next) => {
     await club.save();
     
     res.status(200).json({ success: true, ok: true, message: 'Left club successfully' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getClubEvents = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(200).json({ success: true, data: [] });
+    }
+    const events = await Event.find({ club: id }).sort({ startDate: 1 });
+    res.status(200).json({ success: true, data: events });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const createClubEvent = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { name, title, description, startDate, endDate, deadline, location, status } = req.body || {};
+    const eventName = (name || title || '').trim();
+    if (!eventName) {
+      throw new AppError('Event name is required', 400);
+    }
+    const event = await Event.create({
+      name: eventName,
+      description: description || '',
+      startDate: startDate ? new Date(startDate) : new Date(),
+      endDate: endDate ? new Date(endDate) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      deadline: deadline ? new Date(deadline) : null,
+      location: location || '',
+      status: status || 'upcoming',
+      club: mongoose.isValidObjectId(id) ? id : null,
+      createdBy: req.user.id,
+    });
+    res.status(201).json({ success: true, data: event });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getClubMembers = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(200).json({ success: true, data: [] });
+    }
+    const club = await Club.findById(id).populate('members', 'name email role status skills capacity');
+    if (!club) throw new AppError('Club not found', 404);
+    res.status(200).json({ success: true, data: club.members || [] });
   } catch (error) {
     next(error);
   }

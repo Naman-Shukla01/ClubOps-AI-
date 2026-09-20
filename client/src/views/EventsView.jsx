@@ -41,7 +41,7 @@ export function EventsView({ user }) {
         date: ev.startDate || ev.date || new Date().toISOString(),
         type: ev.status || 'upcoming',
         deadline: ev.deadline || null,
-        clubId: clubId || '1',
+        clubId: clubId || null,
       }));
       setEvents(normalized);
     } catch (error) {
@@ -63,6 +63,7 @@ export function EventsView({ user }) {
       startDate,
       endDate,
       status: 'upcoming',
+      ...(clubId ? { clubId } : {}),
     };
     try {
       const created = await dev2Service.createEvent(eventPayload);
@@ -72,7 +73,7 @@ export function EventsView({ user }) {
         date: startDate,
         type: 'upcoming',
         deadline: null,
-        clubId: clubId || '1',
+        clubId: clubId || null,
       };
       setEvents((prev) => [newEv, ...prev]);
     } catch (err) {
@@ -83,7 +84,7 @@ export function EventsView({ user }) {
         date: startDate,
         type: 'upcoming',
         deadline: null,
-        clubId: clubId || '1',
+        clubId: clubId || null,
       };
       setEvents((prev) => [localEv, ...prev]);
     }

@@ -65,9 +65,8 @@ export function AiSearchModal({ onClose }) {
     const timer = setTimeout(async () => {
       setAiLoading(true);
       try {
-        const response = await fetch(`http://localhost:5000/api/v1/ai/search?q=${encodeURIComponent(query)}`);
-        const data = await response.json();
-        if (data.success) {
+        const data = await dev2Service.searchAi(query);
+        if (data && (data.answer || data.success)) {
           setAiAnswer(data.answer);
         }
       } catch (err) {

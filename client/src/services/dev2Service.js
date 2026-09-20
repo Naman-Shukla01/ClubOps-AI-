@@ -95,4 +95,11 @@ export const postAiChat = async (prompt, eventId) => {
   return res
 }
 
-export const dev2Service = { getEvents, getMeetings, createMeeting, createEvent, updateEvent, deleteEvent, getDocuments, uploadDocument, getRisks, parseTranscript, analyzeRisks, generateAnnouncement, postAiChat }
+export const searchAi = async (query, eventId) => {
+  const url = eventId
+    ? `/ai/search?q=${encodeURIComponent(query)}&eventId=${eventId}`
+    : `/ai/search?q=${encodeURIComponent(query)}`
+  return apiRequest(url, { method: 'GET' })
+}
+
+export const dev2Service = { getEvents, getMeetings, createMeeting, createEvent, updateEvent, deleteEvent, getDocuments, uploadDocument, getRisks, parseTranscript, analyzeRisks, generateAnnouncement, postAiChat, searchAi }

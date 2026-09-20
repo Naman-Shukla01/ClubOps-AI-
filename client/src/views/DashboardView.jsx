@@ -17,45 +17,48 @@ export function DashboardView({ user, setActiveTab }) {
 
   useEffect(() => {
     const loadClub = async () => {
-      if (!user?.activeClubId) {
+      const activeId = user?.activeClubId;
+      const isValidObjectId = typeof activeId === 'string' && /^[0-9a-fA-F]{24}$/.test(activeId);
+
+      if (!activeId || !isValidObjectId) {
         setActiveClub({
-          id: '1',
-          name: user?.activeClubName || 'Tech Innovators Club',
-          icon: user?.activeClubIcon || '💻',
-          description: 'Exploring latest technologies and building innovative projects.',
-          members: 24,
-          events: 5,
-        })
-        return
+          id: isValidObjectId ? activeId : null,
+          name: user?.activeClubName || 'Dashboard',
+          icon: user?.activeClubIcon || '🏠',
+          description: '',
+          members: 0,
+          events: 0,
+        });
+        return;
       }
 
       try {
-        const res = await clubService.getClub(user.activeClubId)
-        if (res?.data?.id) {
-          setActiveClub(res.data)
-        } else if (res?.id) {
-          setActiveClub(res)
+        const res = await clubService.getClub(activeId);
+        if (res?.data?.id || res?.data?._id) {
+          setActiveClub(res.data);
+        } else if (res?.id || res?._id) {
+          setActiveClub(res);
         } else {
           setActiveClub({
-            id: user.activeClubId,
-            name: user.activeClubName || 'Active Club',
-            icon: user.activeClubIcon || '🏛️',
-            members: 10,
-            events: 3,
-          })
+            id: activeId,
+            name: user?.activeClubName || 'Club Dashboard',
+            icon: user?.activeClubIcon || '🏛️',
+            members: 0,
+            events: 0,
+          });
         }
       } catch {
         setActiveClub({
-          id: user.activeClubId,
-          name: user.activeClubName || 'Active Club',
-          icon: user.activeClubIcon || '🏛️',
-          members: 10,
-          events: 3,
-        })
+          id: activeId,
+          name: user?.activeClubName || 'Club Dashboard',
+          icon: user?.activeClubIcon || '🏛️',
+          members: 0,
+          events: 0,
+        });
       }
-    }
+    };
 
-    loadClub()
+    loadClub();
   }, [user?.activeClubId, user?.activeClubName, user?.activeClubIcon])
 
   useEffect(() => {
@@ -99,7 +102,7 @@ export function DashboardView({ user, setActiveTab }) {
           </h2>
 
           <p className="text-muted text-sm">
-            {isClubHead ? 'Club Head' : 'Member'} · {user?.activeClubName || 'Tech Club'}
+            {isClubHead ? 'Club Head' : 'Member'} · {user?.activeClubName || 'All Clubs'}
           </p>
         </div>
 

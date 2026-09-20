@@ -41,7 +41,7 @@ app.use(cors({
   },
 }));
 app.use(session({
-  secret: process.env.OAUTH_SESSION_SECRET || process.env.JWT_SECRET,
+  secret: process.env.OAUTH_SESSION_SECRET || process.env.JWT_SECRET || 'clubops-ai-session-secret-key-default',
   resave: false,
   saveUninitialized: false,
   cookie: {

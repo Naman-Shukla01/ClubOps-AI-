@@ -30,7 +30,7 @@ function normalizeEvent(event) {
 router.get('/', async (req, res, next) => {
   try {
     const { clubId } = req.query;
-    const query = clubId ? { club: clubId } : {};
+    const query = (clubId && mongoose.isValidObjectId(clubId)) ? { club: clubId } : {};
     const events = await Event.find(query)
       .populate('volunteers', 'name email')
       .sort({ startDate: 1 });
@@ -64,7 +64,7 @@ router.post('/', requireClubLead, async (req, res, next) => {
       deadline: deadline ? new Date(deadline) : null,
       location: location || '',
       status: status || 'planning',
-      club: clubId || null,
+      club: (clubId && mongoose.isValidObjectId(clubId)) ? clubId : null,
       createdBy: req.user.id,
     });
 

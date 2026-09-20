@@ -85,22 +85,38 @@ export async function parseMeetingTranscript(text, meetingDate) {
     ? `The meeting date is ${new Date(meetingDate).toISOString()}. Resolve relative dates only when this context makes them unambiguous.`
     : 'No meeting date is available. Return null for relative or otherwise ambiguous deadlines.';
 
-  const result = await generateStructuredResponse({
-    systemInstruction: [
-      'You extract structured meeting information from messy conversational notes.',
-      'Return only JSON matching the supplied schema. Never return prose, markdown, or extra keys.',
-      'Extract a task only when an actual commitment or action is stated.',
-      'Do not invent people, dates, decisions, or details. Use null for unknown owner or deadline.',
-      'Convert relative dates such as Friday only when the meeting date context makes the date confident.',
-      dateContext
-    ].join(' '),
-    prompt: text,
-    responseJsonSchema: transcriptResponseSchema
-  });
-
   try {
+    const result = await generateStructuredResponse({
+      systemInstruction: [
+        'You extract structured meeting information from messy conversational notes.',
+        'Return only JSON matching the supplied schema. Never return prose, markdown, or extra keys.',
+        'Extract a task only when an actual commitment or action is stated.',
+        'Do not invent people, dates, decisions, or details. Use null for unknown owner or deadline.',
+        'Convert relative dates such as Friday only when the meeting date context makes the date confident.',
+        dateContext
+      ].join(' '),
+      prompt: text,
+      responseJsonSchema: transcriptResponseSchema
+    });
+
     return normalizeTranscriptResult(result);
-  } catch {
-    throw new GeminiServiceError('AI service returned an invalid transcript structure');
+  } catch (error) {
+    console.warn('Gemini transcript parsing failed, falling back to heuristic parsing:', error.message);
+    const lines = text.split(/[.\n]/).map(l => l.trim()).filter(l => l.length > 5);
+    const tasks = lines.map(line => ({
+      title: line.length > 60 ? line.slice(0, 60) + '...' : line,
+      description: line,
+      owner: null,
+      deadline: null,
+      priority: 'medium'
+    }));
+
+    return {
+      summary: lines.slice(0, 2).join('. ') || 'Meeting transcript processed.',
+      tasks: tasks.slice(0, 5),
+      decisions: [],
+      actionItems: lines.slice(0, 5),
+      importantDates: []
+    };
   }
 }
