@@ -15,6 +15,12 @@
 <p align="center">
   <strong>ClubOps AI</strong> is a modern, full-stack, AI-powered club operations platform designed to eliminate organizational chaos. From automated meeting minutes parsing and task extraction to real-time risk radar monitoring and contextual AI document Q&A, ClubOps AI transforms how student leaders manage events, volunteers, announcements, and compliance.
 </p>
+<p>
+  🌐 <strong>Live Demo:</strong>
+  <a href="https://club-ops-ai-ohl5-xi.vercel.app/" target="_blank">
+    ClubOps AI
+  </a>
+</p>
 
 [Key Features](#-key-features) • [System Architecture](#-system-architecture) • [Module Walkthrough](#-module-walkthrough) • [Tech Stack](#-tech-stack) • [Quickstart Guide](#-quickstart-guide) • [API Reference](#-api-reference)
 
