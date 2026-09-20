@@ -13,7 +13,7 @@ router.get('/google', (req, res, next) => {
 	if (!isGoogleConfigured()) {
 		return res.status(503).json({ success: false, message: 'Google authentication is not configured' });
 	}
-	passport.authenticate('google', { scope: ['profile', 'email'], state: true, session: false })(req, res, next);
+	passport.authenticate('google', { scope: ['profile', 'email'], session: false })(req, res, next);
 });
 
 router.get('/google/callback', (req, res, next) => {
@@ -23,7 +23,7 @@ router.get('/google/callback', (req, res, next) => {
 	const frontendUrl = process.env.CLIENT_URL;
 	if (!frontendUrl) return res.status(500).json({ success: false, message: 'CLIENT_URL is not configured' });
 
-	passport.authenticate('google', { state: true, session: false }, (error, user) => {
+	passport.authenticate('google', { session: false }, (error, user) => {
 		if (error || !user) {
 			const reason = encodeURIComponent(error?.message || 'Google authentication failed');
 			return res.redirect(`${frontendUrl}/#oauth_error=${reason}`);

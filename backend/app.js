@@ -1,7 +1,6 @@
 import 'dotenv/config';
 import cors from 'cors';
 import express from 'express';
-import session from 'express-session';
 import actionRoutes from './routes/actionRoutes.js';
 import aiRoutes from './routes/aiRoutes.js';
 import analyticsRoutes from './routes/analyticsRoutes.js';
@@ -56,19 +55,8 @@ app.use(cors({
   credentials: true,
 }));
 
-app.use(session({
-  secret: process.env.OAUTH_SESSION_SECRET || process.env.JWT_SECRET || 'clubops-ai-session-secret-key-default',
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: 10 * 60 * 1000,
-  },
-}));
 app.use(passport.initialize());
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json({ limit: '10mb' }));
 
 app.get('/', (req, res) => {
   res.json({
