@@ -64,6 +64,11 @@ export function VolunteerCard({
             {role}
           </p>
 
+          {volunteer.club && volunteer.club.name && (
+            <p className="text-indigo-400 text-xs mt-1 font-medium">
+              🏢 {volunteer.club.name}
+            </p>
+          )}
         </div>
 
       </div>

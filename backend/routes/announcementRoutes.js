@@ -40,7 +40,7 @@ router.get('/', async (req, res, next) => {
   }
 });
 
-router.patch('/:id', requireClubLead, async (req, res, next) => {
+const handleUpdateAnnouncement = async (req, res, next) => {
   try {
     if (!mongoose.isValidObjectId(req.params.id)) throw new AppError('Announcement not found', 404);
     const updates = {};
@@ -55,7 +55,10 @@ router.patch('/:id', requireClubLead, async (req, res, next) => {
     if (!announcement) throw new AppError('Announcement not found', 404);
     res.status(200).json({ success: true, data: normalizeAnnouncement(announcement) });
   } catch (error) { next(error); }
-});
+};
+
+router.patch('/:id', requireClubLead, handleUpdateAnnouncement);
+router.put('/:id', requireClubLead, handleUpdateAnnouncement);
 
 router.delete('/:id', requireClubLead, async (req, res, next) => {
   try {

@@ -14,7 +14,7 @@ function looksLikeMutation(text) {
  */
 export async function handleAiChat(req, res, next) {
   try {
-    const { prompt, message, command, eventId } = req.body || {};
+    const { prompt, message, command, eventId, clubId } = req.body || {};
     const textPrompt = prompt || message || command;
 
     if (!textPrompt || typeof textPrompt !== 'string' || !textPrompt.trim()) {
@@ -25,12 +25,18 @@ export async function handleAiChat(req, res, next) {
 
     // Volunteers cannot trigger mutating AI actions
     if (isVolunteer && looksLikeMutation(textPrompt)) {
-      throw new AppError('Only club leads and event managers can create tasks, assign people, or make changes', 403);
+      return res.status(200).json({
+        success: true,
+        reply: "As a Volunteer, you have read-only access. You cannot create tasks, events, or assign work via AI.",
+        action: { type: 'PERMISSION_DENIED', executedActions: [] },
+        timestamp: new Date().toISOString()
+      });
     }
 
     const result = await executeChatAction({
       prompt: textPrompt.trim(),
       eventId,
+      clubId,
       userId: req.user.id
     });
 
@@ -55,4 +61,3 @@ export async function handleAiSearch(req, res, next) {
     next(error);
   }
 }
-

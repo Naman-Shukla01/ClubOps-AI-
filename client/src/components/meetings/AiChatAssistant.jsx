@@ -2,16 +2,23 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Send, Bot, CheckCircle, Loader2, Sparkles } from 'lucide-react';
 import { dev2Service } from '../../services/dev2Service';
 
-export function AiChatAssistant({ eventId, onTasksChanged }) {
+export function AiChatAssistant({ eventId, clubId, onTasksChanged }) {
 
-  const [messages, setMessages] = useState([
-    { role: 'assistant', text: 'Hi! I can help you automate actions based on meeting transcripts.\n\nTry commands like:\n• "Create a task for stage setup with high priority"\n• "Assign Sarah to catering due Friday"\n• "Mark audio check as done"' }
-  ]);
+  const [messages, setMessages] = useState(() => {
+    const saved = localStorage.getItem('aiChatMessages');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
+    return [
+      { role: 'assistant', text: 'Hi! I can help you automate actions based on meeting transcripts.\n\nTry commands like:\n• "Create a task for stage setup with high priority"\n• "Assign Sarah to catering due Friday"\n• "Mark audio check as done"' }
+    ];
+  });
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef(null);
 
   useEffect(() => {
+    localStorage.setItem('aiChatMessages', JSON.stringify(messages));
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
 
@@ -23,16 +30,16 @@ export function AiChatAssistant({ eventId, onTasksChanged }) {
     setLoading(true);
 
     try {
-      const res = await dev2Service.postAiChat(userText, eventId);
+      const res = await dev2Service.postAiChat(userText, eventId, clubId);
       // Backend returns: { success, reply, action, affectedRecord, timestamp }
       const replyText = res?.reply || res?.message || 'Action processed.';
-      const record = res?.affectedRecord;
+      const records = res?.affectedRecords || (res?.affectedRecord ? [res.affectedRecord] : []);
       const actionType = res?.action?.type;
 
       setMessages(prev => [...prev, { 
         role: 'assistant', 
         text: replyText,
-        record: record || null,
+        records,
         actionType,
         success: res?.success
       }]);
@@ -49,10 +56,10 @@ export function AiChatAssistant({ eventId, onTasksChanged }) {
     }
   };
 
-  const renderRecord = (record) => {
+  const renderRecord = (record, idx) => {
     if (!record) return null;
     return (
-      <div className="mt-3 bg-surface border border-accent/30 rounded-lg p-3 text-xs space-y-1">
+      <div key={idx} className="mt-3 bg-surface border border-accent/30 rounded-lg p-3 text-xs space-y-1">
         <div className="flex items-center gap-1.5 text-accent font-semibold mb-2">
           <CheckCircle size={12} />
           <span>Saved to Database ✓</span>
@@ -93,7 +100,7 @@ export function AiChatAssistant({ eventId, onTasksChanged }) {
               : 'bg-card border border-border text-fg rounded-tl-sm'
             }`}>
               <p className="whitespace-pre-wrap leading-relaxed">{msg.text}</p>
-              {msg.record && renderRecord(msg.record)}
+              {msg.records?.map((record, idx) => renderRecord(record, idx))}
             </div>
           </div>
         ))}

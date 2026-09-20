@@ -13,6 +13,7 @@ function normalizeMeeting(meeting) {
   const meetingDoc = meeting?.toObject ? meeting.toObject() : meeting;
   return {
     id: meetingDoc._id?.toString?.() || meetingDoc.id,
+    event: meetingDoc.event?.toString?.() || meetingDoc.event || null,
     title: meetingDoc.title || 'Untitled Meeting',
     date: meetingDoc.date ? new Date(meetingDoc.date).toISOString() : null,
     duration: 60,
@@ -27,7 +28,12 @@ function normalizeMeeting(meeting) {
 
 router.get('/', async (req, res, next) => {
   try {
-    const meetings = await Meeting.find().sort({ createdAt: -1 }).lean();
+    const { eventId } = req.query;
+    const filter = {};
+    if (eventId && mongoose.isValidObjectId(eventId)) {
+      filter.event = eventId;
+    }
+    const meetings = await Meeting.find(filter).sort({ createdAt: -1 }).lean();
     res.status(200).json({
       success: true,
       data: meetings.map(normalizeMeeting),

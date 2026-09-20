@@ -21,7 +21,7 @@ export function VolunteersView({ user }) {
 
     try {
       if (dev1Service && typeof dev1Service.getVolunteers === "function") {
-        const response = await dev1Service.getVolunteers();
+        const response = await dev1Service.getVolunteers(clubId);
         const data = Array.isArray(response)
           ? response
           : Array.isArray(response?.data)
@@ -55,7 +55,7 @@ export function VolunteersView({ user }) {
       const updatedVolunteer = {
         ...editingVolunteer,
         ...form,
-        clubId: clubId,
+        clubId: form.clubId || clubId,
       };
 
       setVolunteers((prev) =>
@@ -65,6 +65,7 @@ export function VolunteersView({ user }) {
       try {
         if (dev1Service && typeof dev1Service.updateVolunteer === "function") {
           await dev1Service.updateVolunteer(editingVolunteer.id, updatedVolunteer);
+          await loadVolunteers();
         }
       } catch (error) {
         console.warn("Volunteer backend update failed:", error);
@@ -76,12 +77,12 @@ export function VolunteersView({ user }) {
         skills: typeof form.skills === 'string' ? form.skills.split(',').map((s) => s.trim()).filter(Boolean) : (form.skills || []),
         capacity: Number(form.capacity) || 50,
         status: form.status || "active",
+        clubId: form.clubId || clubId,
       };
 
       try {
-        const res = await dev1Service.createVolunteer(newVolunteerPayload);
-        const created = res?.data || res || { ...newVolunteerPayload, id: Date.now() };
-        setVolunteers((prev) => [...prev, created]);
+        await dev1Service.createVolunteer(newVolunteerPayload);
+        await loadVolunteers();
       } catch (error) {
         console.warn("Volunteer backend create failed:", error);
         setVolunteers((prev) => [...prev, { ...newVolunteerPayload, id: Date.now() }]);
@@ -104,6 +105,7 @@ export function VolunteersView({ user }) {
     try {
       if (dev1Service && typeof dev1Service.deleteVolunteer === "function") {
         await dev1Service.deleteVolunteer(volunteer.id);
+        await loadVolunteers();
       }
     } catch (error) {
       console.warn("Backend volunteer delete failed:", error);
@@ -119,7 +121,7 @@ export function VolunteersView({ user }) {
             Volunteers
           </h2>
           <p className="text-sm text-gray-400 mt-1">
-            Manage volunteers for the active club
+            {user?.activeClubName ? `${user.activeClubName} · ` : ''}Manage volunteers
           </p>
         </div>
 
@@ -183,6 +185,8 @@ export function VolunteersView({ user }) {
       {showModal && (
         <AddVolunteerModal
           volunteer={editingVolunteer}
+          clubs={user?.joinedClubs || (user?.activeClubId ? [{ id: user.activeClubId, name: user.activeClubName }] : [])}
+          activeClubId={clubId}
           onClose={() => {
             setShowModal(false);
             setEditingVolunteer(null);
@@ -193,3 +197,5 @@ export function VolunteersView({ user }) {
     </div>
   );
 }
+
+export default VolunteersView;

@@ -19,6 +19,7 @@ function normalizeVolunteer(user) {
     skills: Array.isArray(userDoc.skills) ? userDoc.skills : [],
     capacity: Number.isFinite(userDoc.capacity) ? userDoc.capacity : 0,
     status: userDoc.status || 'active',
+    club: userDoc.club ? { id: userDoc.club._id?.toString?.() || userDoc.club.toString?.(), name: userDoc.club.name || '' } : null,
   };
 }
 
@@ -38,21 +39,25 @@ async function uniqueEmail(name) {
 
 router.get('/', async (req, res, next) => {
   try {
-    const { clubId, q } = req.query;
+    const { clubId, q, search } = req.query;
+    const searchTerm = q || search;
     let query = { role: { $in: ['VOLUNTEER', 'volunteer'] } };
 
     if (clubId && mongoose.isValidObjectId(clubId)) {
       const club = await Club.findById(clubId).select('members');
-      if (!club) throw new AppError('Club not found', 404);
-      query._id = { $in: club.members || [] };
+      if (club && Array.isArray(club.members) && club.members.length > 0) {
+        query._id = { $in: club.members };
+      } else {
+        query.$or = [{ club: clubId }, { _id: { $in: club?.members || [] } }];
+      }
     }
 
-    if (q && typeof q === 'string' && q.trim()) {
-      const pattern = new RegExp(q.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    if (searchTerm && typeof searchTerm === 'string' && searchTerm.trim()) {
+      const pattern = new RegExp(searchTerm.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
       query = { ...query, $or: [{ name: pattern }, { email: pattern }] };
     }
 
-    const volunteers = await User.find(query).sort({ name: 1 });
+    const volunteers = await User.find(query).populate('club', 'name').sort({ name: 1 });
     res.status(200).json({ success: true, data: volunteers.map(normalizeVolunteer) });
   } catch (error) {
     next(error);
@@ -61,7 +66,7 @@ router.get('/', async (req, res, next) => {
 
 router.post('/', requireRole(ROLES.ADMIN, ROLES.EVENT_MANAGER), async (req, res, next) => {
   try {
-    const { name, email, skills, capacity, status } = req.body || {};
+    const { name, email, skills, capacity, status, clubId } = req.body || {};
     if (!name || typeof name !== 'string' || !name.trim()) {
       throw new AppError('name is required', 400);
     }
@@ -73,9 +78,11 @@ router.post('/', requireRole(ROLES.ADMIN, ROLES.EVENT_MANAGER), async (req, res,
       skills: Array.isArray(skills) ? skills.filter(Boolean) : [],
       capacity: Number.isFinite(Number(capacity)) ? Number(capacity) : 0,
       status: ['active', 'busy', 'idle'].includes(status) ? status : 'active',
+      club: (clubId && mongoose.isValidObjectId(clubId)) ? clubId : undefined,
     });
 
-    res.status(201).json({ success: true, data: normalizeVolunteer(volunteer) });
+    const populated = await volunteer.populate('club', 'name');
+    res.status(201).json({ success: true, data: normalizeVolunteer(populated) });
   } catch (error) {
     next(error);
   }
@@ -89,13 +96,60 @@ router.patch('/:id/assign-task', requireRole(ROLES.ADMIN, ROLES.EVENT_MANAGER), 
       throw new AppError('volunteer id and taskId must be valid ObjectIds', 400);
     }
 
-    const [volunteer, task] = await Promise.all([User.findOne({ _id: id, role: 'volunteer' }), Task.findById(taskId)]);
+    const [volunteer, task] = await Promise.all([
+      User.findOne({ _id: id, role: { $in: ['volunteer', 'VOLUNTEER'] } }).populate('club', 'name'),
+      Task.findById(taskId)
+    ]);
     if (!volunteer) throw new AppError('Volunteer not found', 404);
     if (!task) throw new AppError('Task not found', 404);
 
     task.owner = volunteer._id;
     await task.save();
     res.status(200).json({ success: true, data: { taskId: task.id, volunteer: normalizeVolunteer(volunteer) } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.put('/:id', requireRole(ROLES.ADMIN, ROLES.EVENT_MANAGER), async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) throw new AppError('Invalid volunteer ID', 400);
+
+    const { name, email, skills, capacity, status, clubId } = req.body || {};
+    const updates = {};
+    if (name) updates.name = name.trim();
+    if (email) updates.email = email.trim().toLowerCase();
+    if (Array.isArray(skills)) updates.skills = skills.filter(Boolean);
+    if (capacity !== undefined) updates.capacity = Number(capacity);
+    if (status) updates.status = status;
+    if (clubId && mongoose.isValidObjectId(clubId)) updates.club = clubId;
+
+    const volunteer = await User.findOneAndUpdate(
+      { _id: id, role: { $in: ['volunteer', 'VOLUNTEER'] } },
+      updates,
+      { new: true }
+    ).populate('club', 'name');
+
+    if (!volunteer) throw new AppError('Volunteer not found', 404);
+    res.status(200).json({ success: true, data: normalizeVolunteer(volunteer) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.delete('/:id', requireRole(ROLES.ADMIN, ROLES.EVENT_MANAGER), async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) throw new AppError('Invalid volunteer ID', 400);
+
+    const volunteer = await User.findOneAndDelete({ _id: id, role: { $in: ['volunteer', 'VOLUNTEER'] } });
+    if (!volunteer) throw new AppError('Volunteer not found', 404);
+
+    // Unassign tasks from this volunteer
+    await Task.updateMany({ owner: id }, { $unset: { owner: 1 } });
+
+    res.status(200).json({ success: true, data: { id, deleted: true } });
   } catch (error) {
     next(error);
   }

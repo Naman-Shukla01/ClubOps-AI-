@@ -9,7 +9,8 @@ const tabList = [
   "Tasks",
   "Announcements",
   "Volunteers",
-  "Documents & Risks",
+  "Documents",
+  "Risks",
   "Meetings",
 ];
 
@@ -26,7 +27,6 @@ export default function Sidebar({
 
   const navigate = useNavigate();
 
-  // -----------------------------------------
   // -----------------------------------------
   // Joined clubs
   // -----------------------------------------
@@ -360,6 +360,10 @@ function getIcon(tab) {
   const icons = {
 
     Dashboard: "📊",
+
+    Documents: "📁",
+
+    Risks: "⚠️",
 
     "Documents & Risks": "📄",
 

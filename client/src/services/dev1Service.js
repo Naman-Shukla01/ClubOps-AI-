@@ -26,7 +26,7 @@ const normalizeTaskPayload = (data = {}) => ({
 })
 
 export const getTasks = async (clubId) => {
-  const url = clubId ? `/tasks?clubId=${clubId}` : '/tasks'
+  const url = clubId && clubId !== '1' ? `/tasks?clubId=${clubId}` : '/tasks'
   const res = await apiRequest(url, { method: 'GET' })
   return toTaskData(res)
 }
@@ -54,7 +54,7 @@ export const deleteTask = async (id) => {
 
 export const getVolunteers = async (clubId, query) => {
   const params = new URLSearchParams()
-  if (clubId) params.set('clubId', clubId)
+  if (clubId && clubId !== '1') params.set('clubId', clubId)
   if (query) params.set('q', query)
   const res = await apiRequest(`/volunteers${params.toString() ? `?${params.toString()}` : ''}`, { method: 'GET' })
   return toData(res)
@@ -68,6 +68,19 @@ export const createVolunteer = async (data) => {
   return toData(res)
 }
 
+export const updateVolunteer = async (id, data) => {
+  const res = await apiRequest(`/volunteers/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  })
+  return toData(res)
+}
+
+export const deleteVolunteer = async (id) => {
+  const res = await apiRequest(`/volunteers/${id}`, { method: 'DELETE' })
+  return toData(res)
+}
+
 export const assignTaskToVolunteer = async (vid, tid) => {
   const res = await apiRequest(`/volunteers/${vid}/assign-task`, {
     method: 'PATCH',
@@ -76,4 +89,16 @@ export const assignTaskToVolunteer = async (vid, tid) => {
   return toData(res)
 }
 
-export const dev1Service = { getTasks, createTask, updateTask, deleteTask, getVolunteers, createVolunteer, assignTaskToVolunteer }
+export const dev1Service = {
+  getTasks,
+  createTask,
+  updateTask,
+  deleteTask,
+  getVolunteers,
+  createVolunteer,
+  updateVolunteer,
+  deleteVolunteer,
+  assignTaskToVolunteer
+}
+
+export default dev1Service

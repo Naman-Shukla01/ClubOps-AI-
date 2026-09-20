@@ -27,6 +27,24 @@ function normalizeClub(club, userId = null) {
   };
 }
 
+function normalizeEvent(event) {
+  const doc = event?.toObject ? event.toObject() : event;
+  return {
+    id: doc._id?.toString?.() || doc.id,
+    name: doc.name,
+    description: doc.description || '',
+    startDate: doc.startDate,
+    endDate: doc.endDate,
+    deadline: doc.deadline || null,
+    location: doc.location || '',
+    status: doc.status || 'upcoming',
+    club: doc.club?._id?.toString?.() || doc.club?.toString?.() || doc.club || null,
+    createdBy: doc.createdBy?._id?.toString?.() || doc.createdBy?.toString?.() || doc.createdBy || null,
+    createdAt: doc.createdAt,
+    updatedAt: doc.updatedAt,
+  };
+}
+
 export const getClubs = async (req, res, next) => {
   try {
     const clubs = await Club.find().populate('head', 'name email');
@@ -211,7 +229,7 @@ export const getClubEvents = async (req, res, next) => {
       return res.status(200).json({ success: true, data: [] });
     }
     const events = await Event.find({ club: id }).sort({ startDate: 1 });
-    res.status(200).json({ success: true, data: events });
+    res.status(200).json({ success: true, data: events.map(normalizeEvent) });
   } catch (error) {
     next(error);
   }
@@ -236,7 +254,7 @@ export const createClubEvent = async (req, res, next) => {
       club: mongoose.isValidObjectId(id) ? id : null,
       createdBy: req.user.id,
     });
-    res.status(201).json({ success: true, data: event });
+    res.status(201).json({ success: true, data: normalizeEvent(event) });
   } catch (error) {
     next(error);
   }

@@ -3,7 +3,15 @@ import { apiRequest } from './api.js'
 const toData = (payload) => payload?.data ?? payload ?? []
 
 export const getAnnouncements = async (clubId) => {
-  const res = await apiRequest(`/announcements${clubId ? `?clubId=${encodeURIComponent(clubId)}` : ''}`, { method: 'GET' })
+  const res = await apiRequest(`/announcements${clubId && clubId !== '1' ? `?clubId=${encodeURIComponent(clubId)}` : ''}`, { method: 'GET' })
+  return toData(res)
+}
+
+export const createAnnouncement = async (data) => {
+  const res = await apiRequest('/announcements', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
   return toData(res)
 }
 
@@ -17,12 +25,6 @@ export const deleteAnnouncement = async (id) => {
   return toData(res)
 }
 
-export const createAnnouncement = async (data) => {
-  const res = await apiRequest('/announcements', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  })
-  return toData(res)
-}
-
 export const announcementService = { getAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement }
+
+export default announcementService

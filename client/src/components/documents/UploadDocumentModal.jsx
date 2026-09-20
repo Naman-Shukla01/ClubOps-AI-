@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Upload, FileText } from 'lucide-react';
 import { dev2Service } from '../../services/dev2Service';
 
-export function UploadDocumentModal({ onClose, onUploadComplete }) {
+export function UploadDocumentModal({ activeClubId, onClose, onUploadComplete }) {
   const [events, setEvents] = useState([]);
   const [selectedEvent, setSelectedEvent] = useState('');
   const [title, setTitle] = useState('');
@@ -13,8 +13,17 @@ export function UploadDocumentModal({ onClose, onUploadComplete }) {
   const [analysisResult, setAnalysisResult] = useState(null);
 
   useEffect(() => {
-    dev2Service.getEvents().then(setEvents).catch(console.error);
-  }, []);
+    dev2Service
+      .getEvents(activeClubId)
+      .then((evs) => {
+        const list = Array.isArray(evs) ? evs : [];
+        setEvents(list);
+        if (list.length > 0) {
+          setSelectedEvent(list[0].id || list[0]._id);
+        }
+      })
+      .catch(console.error);
+  }, [activeClubId]);
 
   const handleUpload = async (e) => {
     e.preventDefault();
@@ -29,6 +38,9 @@ export function UploadDocumentModal({ onClose, onUploadComplete }) {
     try {
       const formData = new FormData();
       formData.append('event', selectedEvent);
+      if (activeClubId) {
+        formData.append('club', activeClubId);
+      }
       formData.append('title', title);
       formData.append('description', description);
       
@@ -40,7 +52,7 @@ export function UploadDocumentModal({ onClose, onUploadComplete }) {
       if (res && res.aiAnalysis) {
         setAnalysisResult(res);
       } else {
-        onUploadComplete(res);
+        onUploadComplete?.(res);
       }
     } catch (err) {
       console.error(err);
@@ -51,7 +63,7 @@ export function UploadDocumentModal({ onClose, onUploadComplete }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-surface border border-border rounded-2xl w-[500px] max-w-[calc(100%-1.5rem)] flex flex-col max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-surface border border-border rounded-2xl w-[500px] max-w-[90%] flex flex-col max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between p-5 border-b border-border">
           <h3 className="font-semibold text-fg">Upload Document & AI Parse</h3>
           <button onClick={onClose} className="p-1.5 hover:bg-card rounded-lg">
@@ -83,6 +95,25 @@ export function UploadDocumentModal({ onClose, onUploadComplete }) {
                       <li key={i} className="text-sm text-fg bg-card p-3 rounded-lg border border-border flex flex-col gap-1">
                         <span className="font-medium">{task.title}</span>
                         {task.deadline && <span className="text-xs text-muted">Deadline: {new Date(task.deadline).toLocaleDateString()}</span>}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {analysisResult.createdRisks?.length > 0 && (
+                <div>
+                  <h4 className="text-xs font-semibold text-red-400 mb-2 uppercase tracking-wider">Identified Risks ({analysisResult.createdRisks.length})</h4>
+                  <ul className="space-y-2">
+                    {analysisResult.createdRisks.map((risk, i) => (
+                      <li key={i} className="text-sm text-fg bg-card p-3 rounded-lg border border-red-500/20 flex flex-col gap-1">
+                        <span className="font-medium">{risk.title}</span>
+                        <span className={`text-[10px] uppercase font-bold tracking-wider ${
+                          risk.severity === 'high' || risk.severity === 'critical' ? 'text-red-400' :
+                          risk.severity === 'medium' ? 'text-yellow-400' : 'text-green-400'
+                        }`}>
+                          Severity: {risk.severity}
+                        </span>
                       </li>
                     ))}
                   </ul>
