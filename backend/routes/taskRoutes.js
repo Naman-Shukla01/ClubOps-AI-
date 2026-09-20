@@ -136,8 +136,8 @@ router.get('/', async (req, res, next) => {
   }
 });
 
-// Only club leads can create tasks
-router.post('/', requireClubLead, async (req, res, next) => {
+// Allow all authenticated users (including volunteers) to create tasks
+router.post('/', async (req, res, next) => {
   try {
     const { title, description, owner, deadline, priority, status, event, source, clubId } = req.body || {};
 

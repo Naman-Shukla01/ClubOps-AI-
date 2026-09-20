@@ -18,7 +18,7 @@ function parseJsonResponse(text) {
   }
 }
 
-export async function generateStructuredResponse({ prompt, systemInstruction, responseJsonSchema, model = process.env.GEMINI_MODEL || 'gemini-1.5-flash' }) {
+export async function generateStructuredResponse({ prompt, systemInstruction, responseJsonSchema, model = process.env.GEMINI_MODEL || 'gemini-3.6-flash' }) {
   if (!prompt?.trim()) {
     throw new GeminiServiceError('AI prompt cannot be empty', 400);
   }
@@ -35,7 +35,7 @@ export async function generateStructuredResponse({ prompt, systemInstruction, re
       config: {
         systemInstruction,
         responseMimeType: 'application/json',
-        responseJsonSchema
+        responseSchema: responseJsonSchema
       }
     });
     const responseText = typeof response.text === 'string' ? response.text : '';

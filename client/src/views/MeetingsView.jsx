@@ -4,7 +4,7 @@ import { ExtractedActions } from '../components/meetings/ExtractedActions'
 import { AiChatAssistant } from '../components/meetings/AiChatAssistant'
 import { dev2Service } from '../services/dev2Service'
 
-export function MeetingsView() {
+export function MeetingsView({ user }) {
   const [meetings, setMeetings] = useState([])
   const [extractedActions, setExtractedActions] = useState(undefined)
 
@@ -30,7 +30,7 @@ export function MeetingsView() {
           <ExtractedActions actions={extractedActions || undefined} />
         </div>
         <div className="col-span-1 h-full">
-          <AiChatAssistant eventId={meetings[0]?.id} />
+          <AiChatAssistant eventId={meetings[0]?.event} clubId={user?.activeClubId} />
         </div>
       </div>
       <div>

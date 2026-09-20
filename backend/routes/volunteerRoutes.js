@@ -37,7 +37,7 @@ async function uniqueEmail(name) {
 
 router.get('/', async (req, res, next) => {
   try {
-    const volunteers = await User.find({ role: 'volunteer' }).sort({ name: 1 });
+    const volunteers = await User.find({ role: { $in: ['volunteer', 'VOLUNTEER'] } }).sort({ name: 1 });
     res.status(200).json({ success: true, data: volunteers.map(normalizeVolunteer) });
   } catch (error) {
     next(error);

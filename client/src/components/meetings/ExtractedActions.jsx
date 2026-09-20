@@ -20,8 +20,13 @@ export function ExtractedActions({ actions: providedActions = DEFAULT_ACTIONS })
     setLoading(true)
     for (const action of actions) {
       if (!syncedIds.has(action.id)) {
-        await dev1Service.createTask({ title: action.text, status: 'todo', priority: action.priority, assignee: action.owner, tags: ['meeting-action'] }).catch(console.error)
-        setSyncedIds((prev) => new Set([...prev, action.id]))
+        try {
+          await dev1Service.createTask({ title: action.text, status: 'todo', priority: action.priority, assignee: action.owner, tags: ['meeting-action'] })
+          setSyncedIds((prev) => new Set([...prev, action.id]))
+        } catch (error) {
+          console.error('Failed to sync action:', action, error)
+          alert(`Failed to sync task: ${action.text}`)
+        }
       }
     }
     setLoading(false)

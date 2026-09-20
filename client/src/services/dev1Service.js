@@ -26,7 +26,7 @@ const normalizeTaskPayload = (data = {}) => ({
 })
 
 export const getTasks = async (clubId) => {
-  const url = clubId ? `/tasks?clubId=${clubId}` : '/tasks'
+  const url = clubId && clubId !== '1' ? `/tasks?clubId=${clubId}` : '/tasks'
   const res = await apiRequest(url, { method: 'GET' })
   return toTaskData(res)
 }

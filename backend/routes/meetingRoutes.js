@@ -13,6 +13,7 @@ function normalizeMeeting(meeting) {
   const meetingDoc = meeting?.toObject ? meeting.toObject() : meeting;
   return {
     id: meetingDoc._id?.toString?.() || meetingDoc.id,
+    event: meetingDoc.event?.toString?.() || meetingDoc.event || null,
     title: meetingDoc.title || 'Untitled Meeting',
     date: meetingDoc.date ? new Date(meetingDoc.date).toISOString() : null,
     duration: 60,

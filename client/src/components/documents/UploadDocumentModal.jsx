@@ -88,6 +88,25 @@ export function UploadDocumentModal({ onClose, onUploadComplete }) {
                   </ul>
                 </div>
               )}
+
+              {analysisResult.createdRisks?.length > 0 && (
+                <div>
+                  <h4 className="text-xs font-semibold text-red-400 mb-2 uppercase tracking-wider">Identified Risks ({analysisResult.createdRisks.length})</h4>
+                  <ul className="space-y-2">
+                    {analysisResult.createdRisks.map((risk, i) => (
+                      <li key={i} className="text-sm text-fg bg-card p-3 rounded-lg border border-red-500/20 flex flex-col gap-1">
+                        <span className="font-medium">{risk.title}</span>
+                        <span className={`text-[10px] uppercase font-bold tracking-wider ${
+                          risk.severity === 'high' || risk.severity === 'critical' ? 'text-red-400' :
+                          risk.severity === 'medium' ? 'text-yellow-400' : 'text-green-400'
+                        }`}>
+                          Severity: {risk.severity}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               
               <button 
                 onClick={() => onUploadComplete(analysisResult.data)} 
