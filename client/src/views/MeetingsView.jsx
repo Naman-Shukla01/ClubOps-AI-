@@ -14,66 +14,35 @@ export function MeetingsView({ user }) {
       .catch(() => setMeetings([]))
   }, [])
 
-  const activeMeeting = meetings[0]
-  const eventId = activeMeeting?.event || activeMeeting?.id
-  const clubId = user?.activeClubId
-
   return (
-    <div className="space-y-6 min-h-full pb-10">
-      <div>
-        <h2 className="text-2xl font-bold text-fg">🗣️ AI Meeting Notes & Action Extraction</h2>
-        <p className="text-xs text-muted mt-1">
-          {user?.activeClubName ? `${user.activeClubName} · ` : ''}Paste meeting transcripts to extract action items and run AI workflow commands
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold text-fg">Meetings</h2>
+      <div className="grid grid-cols-3 gap-6 h-[500px]">
         <div className="col-span-1 flex flex-col gap-6">
-          <TranscriptInput
-            meetingId={activeMeeting?.id}
-            onResult={(tasks) =>
-              setExtractedActions(
-                tasks.map((task, index) => ({
-                  id: task.taskId || `${task.title}-${index}`,
-                  text: task.title,
-                  owner: task.owner || 'Unassigned',
-                  priority: task.priority || 'medium',
-                }))
-              )
-            }
-          />
+          <TranscriptInput meetingId={meetings[0]?.id} onResult={(tasks) => setExtractedActions(tasks.map((task, index) => ({
+            id: task.taskId || `${task.title}-${index}`,
+            text: task.title,
+            owner: task.owner || 'Unassigned',
+            priority: task.priority || 'medium',
+          })))} />
         </div>
         <div className="col-span-1">
-          <ExtractedActions
-            actions={extractedActions || undefined}
-            user={user}
-            clubId={clubId}
-            eventId={eventId}
-          />
+          <ExtractedActions actions={extractedActions || undefined} clubId={user?.activeClubId} eventId={meetings[0]?.event} />
         </div>
-        <div className="col-span-1 h-[500px] lg:h-full">
-          <AiChatAssistant eventId={eventId} clubId={clubId} />
+        <div className="col-span-1 h-full">
+          <AiChatAssistant eventId={meetings[0]?.event} clubId={user?.activeClubId} />
         </div>
       </div>
-
       <div>
         <h3 className="text-lg font-semibold text-fg mb-4">Past Meetings</h3>
         <div className="space-y-2">
           {meetings.map((m) => (
-            <div
-              key={m.id}
-              className="bg-card border border-border rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2"
-            >
+            <div key={m.id} className="bg-card border border-border rounded-xl p-4 flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-fg">{m.title}</p>
-                <p className="text-xs text-muted">
-                  {m.date ? new Date(m.date).toLocaleDateString() : 'No date'} · {m.duration || 60}min ·{' '}
-                  {(m.participants || []).length} participants
-                </p>
+                <p className="text-xs text-muted">{m.date ? new Date(m.date).toLocaleDateString() : 'No date'} · {m.duration || 60}min · {(m.participants || []).length} participants</p>
               </div>
-              <span className="self-start sm:self-center text-[10px] bg-green/15 text-green px-2.5 py-1 rounded-full uppercase font-semibold">
-                Completed
-              </span>
+              <span className="text-[10px] bg-green/15 text-green px-2 py-1 rounded-full uppercase font-semibold">Completed</span>
             </div>
           ))}
         </div>
@@ -81,5 +50,3 @@ export function MeetingsView({ user }) {
     </div>
   )
 }
-
-export default MeetingsView
