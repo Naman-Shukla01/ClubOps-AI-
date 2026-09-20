@@ -29,17 +29,27 @@ const allowedOrigins = allowedOrigin === '*'
       allowedOrigin,
       allowedOrigin.replace('localhost', '127.0.0.1'),
       allowedOrigin.replace('127.0.0.1', 'localhost'),
+      'http://localhost:3000',
+      'http://127.0.0.1:3000',
+      'http://localhost:5173',
+      'http://127.0.0.1:5173',
     ]);
 
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || !allowedOrigins || allowedOrigins.has(origin)) {
+    if (
+      !origin ||
+      !allowedOrigins ||
+      allowedOrigins.has(origin) ||
+      /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)
+    ) {
       callback(null, true);
       return;
     }
 
     callback(new Error('Origin is not allowed by CORS'));
   },
+  credentials: true,
 }));
 app.use(session({
   secret: process.env.OAUTH_SESSION_SECRET || process.env.JWT_SECRET || 'clubops-ai-session-secret-key-default',
