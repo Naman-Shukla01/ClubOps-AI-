@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Upload, FileText } from 'lucide-react';
 import { dev2Service } from '../../services/dev2Service';
 
-export function UploadDocumentModal({ onClose, onUploadComplete }) {
+export function UploadDocumentModal({ activeClubId, onClose, onUploadComplete }) {
   const [events, setEvents] = useState([]);
   const [selectedEvent, setSelectedEvent] = useState('');
   const [title, setTitle] = useState('');
@@ -13,8 +13,17 @@ export function UploadDocumentModal({ onClose, onUploadComplete }) {
   const [analysisResult, setAnalysisResult] = useState(null);
 
   useEffect(() => {
-    dev2Service.getEvents().then(setEvents).catch(console.error);
-  }, []);
+    dev2Service
+      .getEvents(activeClubId)
+      .then((evs) => {
+        const list = Array.isArray(evs) ? evs : [];
+        setEvents(list);
+        if (list.length > 0) {
+          setSelectedEvent(list[0].id || list[0]._id);
+        }
+      })
+      .catch(console.error);
+  }, [activeClubId]);
 
   const handleUpload = async (e) => {
     e.preventDefault();
@@ -29,6 +38,9 @@ export function UploadDocumentModal({ onClose, onUploadComplete }) {
     try {
       const formData = new FormData();
       formData.append('event', selectedEvent);
+      if (activeClubId) {
+        formData.append('club', activeClubId);
+      }
       formData.append('title', title);
       formData.append('description', description);
       
@@ -40,7 +52,7 @@ export function UploadDocumentModal({ onClose, onUploadComplete }) {
       if (res && res.aiAnalysis) {
         setAnalysisResult(res);
       } else {
-        onUploadComplete(res);
+        onUploadComplete?.(res);
       }
     } catch (err) {
       console.error(err);

@@ -158,7 +158,9 @@ export default function App() {
 
       case "Documents & Risks":
         return (
-          <DocumentsAndRisksView />
+          <DocumentsAndRisksView
+            user={user}
+          />
         );
 
       case "Meetings":

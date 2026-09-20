@@ -42,8 +42,9 @@ export const deleteEvent = async (id) => {
   return toData(res)
 }
 
-export const getDocuments = async () => {
-  const res = await apiRequest('/documents', { method: 'GET' })
+export const getDocuments = async (clubId) => {
+  const url = clubId && clubId !== '1' ? `/documents?clubId=${clubId}` : '/documents'
+  const res = await apiRequest(url, { method: 'GET' })
   return toData(res)
 }
 
@@ -55,8 +56,31 @@ export const uploadDocument = async (formData) => {
   return toData(res)
 }
 
-export const getRisks = async () => {
-  const res = await apiRequest('/risks', { method: 'GET' })
+export const summarizeDocument = async (id) => {
+  const res = await apiRequest(`/documents/${id}/summarize`, {
+    method: 'POST',
+  })
+  return res
+}
+
+export const askDocumentQuestion = async (id, question) => {
+  const res = await apiRequest(`/documents/${id}/ask`, {
+    method: 'POST',
+    body: JSON.stringify({ question }),
+  })
+  return res
+}
+
+export const deleteDocument = async (id) => {
+  const res = await apiRequest(`/documents/${id}`, {
+    method: 'DELETE',
+  })
+  return res
+}
+
+export const getRisks = async (clubId) => {
+  const url = clubId && clubId !== '1' ? `/risks?clubId=${clubId}` : '/risks'
+  const res = await apiRequest(url, { method: 'GET' })
   return toData(res)
 }
 
@@ -102,4 +126,24 @@ export const searchAi = async (query, eventId) => {
   return apiRequest(url, { method: 'GET' })
 }
 
-export const dev2Service = { getEvents, getMeetings, createMeeting, createEvent, updateEvent, deleteEvent, getDocuments, uploadDocument, getRisks, parseTranscript, analyzeRisks, generateAnnouncement, postAiChat, searchAi }
+export const dev2Service = {
+  getEvents,
+  getMeetings,
+  createMeeting,
+  createEvent,
+  updateEvent,
+  deleteEvent,
+  getDocuments,
+  uploadDocument,
+  summarizeDocument,
+  askDocumentQuestion,
+  deleteDocument,
+  getRisks,
+  parseTranscript,
+  analyzeRisks,
+  generateAnnouncement,
+  postAiChat,
+  searchAi,
+}
+
+export default dev2Service
