@@ -76,6 +76,7 @@ export function VolunteersView({ user }) {
         skills: typeof form.skills === 'string' ? form.skills.split(',').map((s) => s.trim()).filter(Boolean) : (form.skills || []),
         capacity: Number(form.capacity) || 50,
         status: form.status || "active",
+        clubId: form.clubId || clubId,
       };
 
       try {
@@ -183,6 +184,8 @@ export function VolunteersView({ user }) {
       {showModal && (
         <AddVolunteerModal
           volunteer={editingVolunteer}
+          clubs={user?.joinedClubs || (user?.activeClubId ? [{ id: user.activeClubId, name: user.activeClubName }] : [])}
+          activeClubId={clubId}
           onClose={() => {
             setShowModal(false);
             setEditingVolunteer(null);

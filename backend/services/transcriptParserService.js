@@ -19,7 +19,7 @@ const transcriptResponseSchema = {
           description: { type: 'string' },
           owner: nullableStringSchema,
           deadline: nullableStringSchema,
-          priority: { type: 'string', enum: ['low', 'medium', 'high'] }
+          priority: { type: 'string', enum: ['low', 'medium', 'high', 'critical'] }
         },
         required: ['title', 'description', 'owner', 'deadline', 'priority']
       }
@@ -63,14 +63,14 @@ function normalizeTranscriptResult(result) {
         && typeof task.description === 'string'
         && (task.owner === null || typeof task.owner === 'string')
         && (task.deadline === null || typeof task.deadline === 'string')
-        && ['low', 'medium', 'high'].includes(task.priority)
+        && ['low', 'medium', 'high', 'critical'].includes(task.priority)
       ))
       .map((task) => ({
         title: task.title.trim(),
         description: typeof task.description === 'string' ? task.description.trim() : '',
         owner: typeof task.owner === 'string' && task.owner.trim() ? task.owner.trim() : null,
         deadline: normalizeDeadline(task.deadline),
-        priority: ['low', 'medium', 'high'].includes(task.priority) ? task.priority : 'medium'
+        priority: ['low', 'medium', 'high', 'critical'].includes(task.priority) ? task.priority : 'medium'
       })),
     decisions: Array.isArray(result.decisions) ? result.decisions.filter((item) => typeof item === 'string') : [],
     actionItems: Array.isArray(result.actionItems) ? result.actionItems.filter((item) => typeof item === 'string') : [],

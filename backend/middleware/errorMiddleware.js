@@ -62,10 +62,8 @@ export function errorHandler(error, req, res, next) {
     message = 'Malformed JSON body in request';
   }
 
-  // Log 500-level internal errors
-  if (statusCode >= 500) {
-    console.error(`[CRITICAL ERROR] ${req.method} ${req.originalUrl}:`, error);
-  }
+  // Log all errors during debugging
+  console.error(`[ERROR] ${req.method} ${req.originalUrl}:`, error.message, details);
 
   const responsePayload = {
     success: false,

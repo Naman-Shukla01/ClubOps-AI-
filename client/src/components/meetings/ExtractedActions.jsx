@@ -4,7 +4,7 @@ import { dev1Service } from '../../services/dev1Service'
 
 const DEFAULT_ACTIONS = []
 
-export function ExtractedActions({ actions: providedActions = DEFAULT_ACTIONS }) {
+export function ExtractedActions({ actions: providedActions = DEFAULT_ACTIONS, clubId, eventId }) {
   const [actions, setActions] = useState(providedActions || DEFAULT_ACTIONS)
   const [loading, setLoading] = useState(false)
   const [syncedIds, setSyncedIds] = useState(new Set())
@@ -21,7 +21,7 @@ export function ExtractedActions({ actions: providedActions = DEFAULT_ACTIONS })
     for (const action of actions) {
       if (!syncedIds.has(action.id)) {
         try {
-          await dev1Service.createTask({ title: action.text, status: 'todo', priority: action.priority, assignee: action.owner, tags: ['meeting-action'] })
+          await dev1Service.createTask({ title: action.text, status: 'todo', priority: action.priority, assignee: action.owner, tags: ['meeting-action'], clubId, event: eventId })
           setSyncedIds((prev) => new Set([...prev, action.id]))
         } catch (error) {
           console.error('Failed to sync action:', action, error)
