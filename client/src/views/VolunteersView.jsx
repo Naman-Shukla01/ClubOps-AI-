@@ -21,7 +21,7 @@ export function VolunteersView({ user }) {
 
     try {
       if (dev1Service && typeof dev1Service.getVolunteers === "function") {
-        const response = await dev1Service.getVolunteers();
+        const response = await dev1Service.getVolunteers(clubId);
         const data = Array.isArray(response)
           ? response
           : Array.isArray(response?.data)

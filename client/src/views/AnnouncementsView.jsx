@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { announcementService } from '../services/announcementService.js'
 
 export function AnnouncementsView({ user }) {
   const [announcements, setAnnouncements] = useState([])
@@ -31,35 +32,43 @@ export function AnnouncementsView({ user }) {
     loadAnnouncements()
   }, [clubId])
 
-  const loadAnnouncements = () => {
+  const loadAnnouncements = async () => {
+    if (!clubId) return
     setLoading(true)
-    setAnnouncements([])
+    try {
+      const data = await announcementService.getAnnouncements(clubId)
+      setAnnouncements(data || [])
+    } catch (e) {
+      console.error(e)
+    }
     setLoading(false)
   }
 
-  const handleCreate = (e) => {
+  const handleCreate = async (e) => {
     e.preventDefault()
 
     if (!newTitle.trim() || !clubId) return
-
-    const announcement = {
-      id: String(Date.now()),
-      title: newTitle.trim(),
-      content: newContent.trim(),
-      channels: [...newChannels],
-      status: 'draft',
-      clubId,
-      clubName: user?.activeClubName || '',
-      createdBy: user?.name || 'Admin',
-      createdAt: new Date().toISOString(),
+    
+    setLoading(true)
+    try {
+      const payload = {
+        title: newTitle.trim(),
+        content: newContent.trim(),
+        channels: [...newChannels],
+        status: 'draft',
+        clubId,
+        createdBy: user?.name || 'Admin',
+      }
+      const created = await announcementService.createAnnouncement(payload)
+      setAnnouncements((prev) => [created, ...prev])
+      setNewTitle('')
+      setNewContent('')
+      setNewChannels(['WhatsApp', 'Email'])
+      setShowCreate(false)
+    } catch (e) {
+      console.error(e)
     }
-
-    setAnnouncements((prev) => [announcement, ...prev])
-
-    setNewTitle('')
-    setNewContent('')
-    setNewChannels(['WhatsApp', 'Email'])
-    setShowCreate(false)
+    setLoading(false)
   }
 
   const startEdit = (ann) => {
@@ -70,35 +79,44 @@ export function AnnouncementsView({ user }) {
     setEditChannels(ann.channels || ['WhatsApp'])
   }
 
-  const saveEdit = () => {
+  const saveEdit = async () => {
     if (!editing || !editTitle.trim()) return
 
-    const updated = announcements.map((announcement) =>
-      announcement.id === editing.id
-        ? {
-          ...announcement,
-          title: editTitle.trim(),
-          content: editContent.trim(),
-          status: editStatus,
-          channels: [...editChannels],
-        }
-        : announcement
-    )
-
-    setAnnouncements(updated)
-    setEditing(null)
+    try {
+      const payload = {
+        title: editTitle.trim(),
+        content: editContent.trim(),
+        status: editStatus,
+        channels: [...editChannels],
+      }
+      const updatedData = await announcementService.updateAnnouncement(editing.id, payload)
+      setAnnouncements((prev) => prev.map((ann) => (ann.id === editing.id ? updatedData : ann)))
+      setEditing(null)
+    } catch (e) {
+      console.error(e)
+    }
   }
 
-  const deleteAnn = (id) => {
-    setAnnouncements((prev) => prev.filter((announcement) => announcement.id !== id))
+  const deleteAnn = async (id) => {
+    try {
+      await announcementService.deleteAnnouncement(id)
+      setAnnouncements((prev) => prev.filter((announcement) => announcement.id !== id))
+    } catch (e) {
+      console.error(e)
+    }
   }
 
-  const changeStatus = (id, status) => {
-    setAnnouncements((prev) =>
-      prev.map((announcement) =>
-        announcement.id === id ? { ...announcement, status } : announcement
+  const changeStatus = async (id, status) => {
+    try {
+      const updatedData = await announcementService.updateAnnouncement(id, { status })
+      setAnnouncements((prev) =>
+        prev.map((announcement) =>
+          announcement.id === id ? updatedData : announcement
+        )
       )
-    )
+    } catch (e) {
+      console.error(e)
+    }
   }
 
   const openPreview = (ann) => {
