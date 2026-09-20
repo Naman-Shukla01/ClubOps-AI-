@@ -25,19 +25,17 @@ export default function Registration({ onRegister }) {
       let registeredUser = null;
       let token = null;
 
-      try {
-        const res = await apiRequest("/auth/register", {
-          method: "POST",
-          body: JSON.stringify({ name: name.trim(), email: email.trim(), password, role }),
-        });
-        if (res?.token) {
-          token = res.token;
-          localStorage.setItem("accessToken", res.token);
-          registeredUser = res.user;
-        }
-      } catch (backendErr) {
-        console.warn("Backend register error, using client fallback:", backendErr.message);
+      const res = await apiRequest("/auth/register", {
+        method: "POST",
+        body: JSON.stringify({ name: name.trim(), email: email.trim(), password, role }),
+      });
+      
+      if (res?.token) {
+        token = res.token;
+        localStorage.setItem("accessToken", res.token);
       }
+      
+      registeredUser = res?.user || {};
 
       let activeClub = null;
       if (token && (role === "club-head" || clubName.trim())) {
@@ -64,8 +62,8 @@ export default function Registration({ onRegister }) {
       }
 
       const newUser = {
-        ...(registeredUser || {}),
-        id: registeredUser?.id || String(Date.now()),
+        ...registeredUser,
+        id: registeredUser.id || String(Date.now()),
         name: name.trim(),
         email: email.trim(),
         role,

@@ -3,11 +3,11 @@ import { Link, useNavigate } from 'react-router-dom';
 import { apiRequest } from '../services/api';
 
 export default function Login({ onLogin }) {
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -27,10 +27,17 @@ export default function Login({ onLogin }) {
           const name = email.split('@')[0]
             .replace(/[._-]/g, ' ')
             .replace(/\b\w/g, (c) => c.toUpperCase());
-          res = await apiRequest('/auth/register', {
-            method: 'POST',
-            body: JSON.stringify({ name, email: email.trim(), password }),
-          });
+          try {
+            res = await apiRequest('/auth/register', {
+              method: 'POST',
+              body: JSON.stringify({ name, email: email.trim(), password }),
+            });
+          } catch (regErr) {
+            if (regErr.status === 409) {
+              throw new Error('Invalid email or password');
+            }
+            throw regErr;
+          }
         } else {
           throw loginErr;
         }

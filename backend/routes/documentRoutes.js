@@ -8,6 +8,7 @@ import Document from '../models/Document.js';
 import Event from '../models/Event.js';
 import Task from '../models/Task.js';
 import User from '../models/User.js';
+import Risk from '../models/Risk.js';
 import { AppError } from '../middleware/errorMiddleware.js';
 import { ROLES } from '../middleware/authMiddleware.js';
 import { parseDocumentText } from '../services/documentParserService.js';
@@ -23,6 +24,7 @@ function normalizeDocument(document) {
     description: doc.description || '',
     type: doc.type || 'PDF',
     content: doc.content || '',
+    aiAnalysis: doc.aiAnalysis || null,
     event: doc.event || null,
     uploadedBy: doc.uploadedBy || null,
     createdAt: doc.createdAt,
@@ -71,6 +73,39 @@ async function saveTasks(tasks, document, eventId) {
   }
 
   return savedTasks;
+}
+
+async function saveRisks(risks, document, eventId) {
+  if (!risks || !risks.length) return [];
+  
+  const existingRisks = await Risk.find({ event: eventId }).select('_id title');
+  const existingTitles = new Map(existingRisks.map((risk) => [risk.title.trim().toLowerCase(), risk]));
+  const savedRisks = [];
+
+  for (const risk of risks) {
+    const normalizedTitle = risk.title.trim().toLowerCase();
+    const existingRisk = existingTitles.get(normalizedTitle);
+
+    if (existingRisk) {
+      savedRisks.push({ ...risk, riskId: existingRisk._id, persisted: true });
+      continue;
+    }
+
+    const createdRisk = await Risk.create({
+      event: eventId,
+      title: risk.title,
+      description: risk.description,
+      severity: risk.severity,
+      type: 'other',
+      sourceType: 'document',
+      sourceId: document._id
+    });
+
+    existingTitles.set(normalizedTitle, createdRisk);
+    savedRisks.push({ ...risk, riskId: createdRisk._id, persisted: true });
+  }
+
+  return savedRisks;
 }
 
 router.get('/', async (req, res, next) => {
@@ -129,10 +164,22 @@ router.post('/', upload.single('file'), async (req, res, next) => {
     });
     
     let createdTasks = [];
+    let createdRisks = [];
     if (extractedText) {
        parsedData = await parseDocumentText(extractedText);
-       if (parsedData && parsedData.tasks) {
-         createdTasks = await saveTasks(parsedData.tasks, doc, eventDoc._id);
+       if (parsedData) {
+         if (parsedData.tasks) {
+           createdTasks = await saveTasks(parsedData.tasks, doc, eventDoc._id);
+         }
+         if (parsedData.risks) {
+           createdRisks = await saveRisks(parsedData.risks, doc, eventDoc._id);
+         }
+         doc.aiAnalysis = {
+           summary: parsedData.summary || '',
+           tasks: parsedData.tasks || [],
+           risks: parsedData.risks || []
+         };
+         await doc.save();
        }
     }
 
@@ -140,7 +187,8 @@ router.post('/', upload.single('file'), async (req, res, next) => {
       success: true, 
       data: normalizeDocument(doc),
       aiAnalysis: parsedData,
-      createdTasks 
+      createdTasks,
+      createdRisks
     });
   } catch (error) {
     next(error);

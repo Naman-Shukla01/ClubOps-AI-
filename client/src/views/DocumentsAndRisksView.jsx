@@ -46,6 +46,7 @@ export function DocumentsAndRisksView() {
         type: (document.type || 'PDF').toUpperCase(),
         modified: document.updatedAt ? new Date(document.updatedAt).toLocaleDateString() : 'Recently',
         size: 'N/A',
+        aiAnalysis: document.aiAnalysis || null
       }))
 
       setFolders(nextFolders)

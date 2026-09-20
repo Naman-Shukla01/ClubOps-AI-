@@ -9,7 +9,8 @@ const userSchema = new mongoose.Schema(
     role: { type: String, enum: ['ADMIN', 'EVENT_MANAGER', 'VOLUNTEER', 'admin', 'lead', 'volunteer'], default: 'VOLUNTEER', required: true, trim: true },
     skills: { type: [String], default: [] },
     capacity: { type: Number, min: 0, max: 100, default: 0 },
-    status: { type: String, enum: ['active', 'busy', 'idle'], default: 'active' }
+    status: { type: String, enum: ['active', 'busy', 'idle'], default: 'active' },
+    club: { type: mongoose.Schema.Types.ObjectId, ref: 'Club' }
   },
   { timestamps: true }
 );

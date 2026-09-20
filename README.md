@@ -1,6 +1,6 @@
 <div align="center">
   <h1>🚀 ClubOps AI</h1>
-  <p><strong>The Intelligent Copilot for College Clubs & Hackathons</strong></p>
+  <p><strong>The Intelligent Copilot for College Clubs, Events </strong></p>
   <p>
     An all-in-one, AI-powered platform to manage events, automate tasks, analyze documents, and proactively mitigate logistical risks.
   </p>

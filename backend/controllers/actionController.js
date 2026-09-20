@@ -14,7 +14,7 @@ function looksLikeMutation(text) {
  */
 export async function handleAiChat(req, res, next) {
   try {
-    const { prompt, message, command, eventId } = req.body || {};
+    const { prompt, message, command, eventId, clubId } = req.body || {};
     const textPrompt = prompt || message || command;
 
     if (!textPrompt || typeof textPrompt !== 'string' || !textPrompt.trim()) {
@@ -36,6 +36,7 @@ export async function handleAiChat(req, res, next) {
     const result = await executeChatAction({
       prompt: textPrompt.trim(),
       eventId,
+      clubId,
       userId: req.user.id
     });
 

@@ -78,7 +78,7 @@ export default function App() {
   // Logout
   // -----------------------------------------
   const handleLogout = () => {
-    localStorage.removeItem("currentUser");
+    localStorage.removeItem('currentUser');
     localStorage.removeItem("accessToken");
 
     setUser(null);
@@ -87,6 +87,19 @@ export default function App() {
       "Dashboard"
     );
   };
+
+  // -----------------------------------------
+  // Global API Auth Error Handler
+  // -----------------------------------------
+  useEffect(() => {
+    const onAuthRequired = () => {
+      handleLogout();
+    };
+    window.addEventListener('clubops:auth-required', onAuthRequired);
+    return () => {
+      window.removeEventListener('clubops:auth-required', onAuthRequired);
+    };
+  }, []);
 
   // -----------------------------------------
   // Render active page
@@ -150,7 +163,9 @@ export default function App() {
 
       case "Meetings":
         return (
-          <MeetingsView />
+          <MeetingsView
+            user={user}
+          />
         );
 
       default:

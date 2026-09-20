@@ -3,7 +3,7 @@ import { apiRequest } from './api.js'
 const toData = (payload) => payload?.data ?? payload ?? []
 
 export const getEvents = async (clubId) => {
-  const url = clubId ? `/events?clubId=${clubId}` : '/events'
+  const url = clubId && clubId !== '1' ? `/events?clubId=${clubId}` : '/events'
   const res = await apiRequest(url, { method: 'GET' })
   return toData(res)
 }
@@ -87,10 +87,10 @@ export const generateAnnouncement = async (data) => {
   return res
 }
 
-export const postAiChat = async (prompt, eventId) => {
+export const postAiChat = async (prompt, eventId, clubId) => {
   const res = await apiRequest('/ai/chat', {
     method: 'POST',
-    body: JSON.stringify({ prompt, eventId }),
+    body: JSON.stringify({ prompt, eventId, clubId }),
   })
   return res
 }

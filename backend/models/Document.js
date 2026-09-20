@@ -8,6 +8,10 @@ const documentSchema = new mongoose.Schema(
     type: { type: String, trim: true, default: 'document' },
     content: { type: String, trim: true, default: '' },
     referenceMetadata: { type: mongoose.Schema.Types.Mixed, default: {} },
+    aiAnalysis: {
+      summary: { type: String, default: '' },
+      tasks: [{ type: mongoose.Schema.Types.Mixed }]
+    },
     uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
   },
   { timestamps: true }
