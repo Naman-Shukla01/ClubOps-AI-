@@ -1,135 +1,155 @@
-import React, { useState, useEffect } from 'react'
-import { dev2Service } from '../services/dev2Service'
+import React, { useState, useEffect } from 'react';
+import { dev2Service } from '../services/dev2Service';
 
 export function EventsView({ user }) {
-  const [events, setEvents] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [showCreate, setShowCreate] = useState(false)
-  const [newTitle, setNewTitle] = useState('')
-  const [newDate, setNewDate] = useState('')
-  const [editing, setEditing] = useState(null)
-  const [editTitle, setEditTitle] = useState('')
-  const [editDate, setEditDate] = useState('')
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showCreate, setShowCreate] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [newDate, setNewDate] = useState('');
+  const [newDeadline, setNewDeadline] = useState('');
 
-  const isClubHead = user?.role === 'club-head' || user?.role === 'lead' || user?.role === 'EVENT_MANAGER' || user?.role === 'ADMIN'
-  const clubId = user?.activeClubId
+  const [editing, setEditing] = useState(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDate, setEditDate] = useState('');
+  const [editDeadline, setEditDeadline] = useState('');
+
+  const isClubHead =
+    user?.role === 'club-head' ||
+    user?.role === 'lead' ||
+    user?.role === 'EVENT_MANAGER' ||
+    user?.role === 'ADMIN';
+
+  const clubId = user?.activeClubId;
 
   useEffect(() => {
-    loadEvents()
-  }, [clubId])
+    loadEvents();
+  }, [clubId]);
 
   const loadEvents = async () => {
-    setLoading(true)
+    setLoading(true);
     try {
-      const response = await dev2Service.getEvents()
+      const response = await dev2Service.getEvents();
       const list = Array.isArray(response)
         ? response
         : Array.isArray(response?.data)
-          ? response.data
-          : []
-
+        ? response.data
+        : [];
       const normalized = list.map((ev) => ({
         id: ev.id || ev._id,
         title: ev.name || ev.title || 'Untitled Event',
         date: ev.startDate || ev.date || new Date().toISOString(),
         type: ev.status || 'upcoming',
+        deadline: ev.deadline || null,
         clubId: clubId || '1',
-      }))
-
-      setEvents(normalized)
+      }));
+      setEvents(normalized);
     } catch (error) {
-      console.warn('Events fetch API failed:', error)
-      setEvents([])
+      console.warn('Events fetch API failed:', error);
+      setEvents([]);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleCreate = async (e) => {
-    e.preventDefault()
-    if (!newTitle.trim()) return
-
-    const startDate = newDate ? new Date(newDate).toISOString() : new Date().toISOString()
-    const endDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
-
+    e.preventDefault();
+    if (!newTitle.trim()) return;
+    const startDate = newDate ? new Date(newDate).toISOString() : new Date().toISOString();
+    const endDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
     const eventPayload = {
       name: newTitle.trim(),
       title: newTitle.trim(),
       startDate,
       endDate,
       status: 'upcoming',
-    }
-
+    };
     try {
-      const created = await dev2Service.createEvent(eventPayload)
+      const created = await dev2Service.createEvent(eventPayload);
       const newEv = {
         id: created?.id || created?.data?.id || String(Date.now()),
         title: created?.name || created?.title || newTitle.trim(),
         date: startDate,
         type: 'upcoming',
+        deadline: null,
         clubId: clubId || '1',
-      }
-
-      setEvents((prev) => [newEv, ...prev])
+      };
+      setEvents((prev) => [newEv, ...prev]);
     } catch (err) {
-      console.warn('Create event backend failed, fallback local update:', err)
+      console.warn('Create event backend failed, fallback local update:', err);
       const localEv = {
         id: String(Date.now()),
         title: newTitle.trim(),
         date: startDate,
         type: 'upcoming',
+        deadline: null,
         clubId: clubId || '1',
-      }
-      setEvents((prev) => [localEv, ...prev])
+      };
+      setEvents((prev) => [localEv, ...prev]);
     }
-
-    setNewTitle('')
-    setNewDate('')
-    setShowCreate(false)
-  }
+    setNewTitle('');
+    setNewDate('');
+    setShowCreate(false);
+  };
 
   const startEdit = (ev) => {
-    setEditing(ev)
-    setEditTitle(ev.title)
-    setEditDate(ev.date ? new Date(ev.date).toISOString().split('T')[0] : '')
-  }
+    setEditTitle(ev.title);
+    setEditDate(ev.date ? new Date(ev.date).toISOString().split('T')[0] : '');
+    setEditDeadline(ev.deadline ? ev.deadline.split('T')[0] : '');
+    setEditing(ev);
+  };
 
-  const saveEdit = () => {
-    if (!editing || !editTitle.trim()) return
-
+  const saveEdit = async () => {
+    if (!editing) return;
     const updated = events.map((e) =>
       e.id === editing.id
-        ? {
-          ...e,
-          title: editTitle.trim(),
-          date: editDate || e.date,
-        }
+        ? { ...e, title: editTitle.trim(), date: editDate || e.date, deadline: editDeadline || e.deadline }
         : e
-    )
+    );
+    setEvents(updated);
+    setEditing(null);
+    try {
+      await dev2Service.updateEvent(editing.id, {
+        name: editTitle.trim(),
+        startDate: editDate,
+        // preserve other fields as needed
+      });
+    } catch (err) {
+      console.warn('Backend event update failed:', err);
+    }
+  };
 
-    setEvents(updated)
-    setEditing(null)
-  }
+  const deleteEvent = async (id) => {
+    setEvents((prev) => prev.filter((e) => e.id !== id));
+    try {
+      await dev2Service.deleteEvent(id);
+    } catch (err) {
+      console.warn('Backend delete failed:', err);
+    }
+  };
 
-  const deleteEvent = (id) => {
-    setEvents((prev) => prev.filter((e) => e.id !== id))
-  }
+  const renderCountdown = (deadlineStr) => {
+    if (!deadlineStr) return null;
+    const msLeft = new Date(deadlineStr) - new Date();
+    const daysLeft = Math.ceil(msLeft / (1000 * 60 * 60 * 24));
+    if (daysLeft < 0) {
+      return <span className="px-2 py-1 text-[10px] rounded-full bg-red/15 text-red font-semibold animate-pulse">OVERDUE</span>;
+    } else if (daysLeft <= 3) {
+      return <span className="px-2 py-1 text-[10px] rounded-full bg-yellow/15 text-yellow font-semibold animate-bounce">{daysLeft} days left ⏳</span>;
+    } else {
+      return <span className="px-2 py-1 text-[10px] rounded-full bg-green/15 text-green">{daysLeft} days left</span>;
+    }
+  };
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-2xl font-bold text-fg">
-            {user?.activeClubId ? 'Club Events' : 'Events'}
-          </h2>
-
+          <h2 className="text-2xl font-bold text-fg">{user?.activeClubId ? 'Club Events' : 'Events'}</h2>
           <p className="text-muted text-sm">
-            {user?.activeClubName
-              ? user.activeClubName + ' events'
-              : 'Upcoming events'}
+            {user?.activeClubName ? `${user.activeClubName} events` : 'Upcoming events'}
           </p>
         </div>
-
         {isClubHead && (
           <button
             onClick={() => setShowCreate(true)}
@@ -143,10 +163,7 @@ export function EventsView({ user }) {
       {loading ? (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
-            <div
-              key={i}
-              className="bg-card border border-border rounded-xl p-5 h-20 animate-pulse"
-            />
+            <div key={i} className="bg-card border border-border rounded-xl p-5 h-20 animate-pulse" />
           ))}
         </div>
       ) : events.length === 0 ? (
@@ -157,10 +174,7 @@ export function EventsView({ user }) {
       ) : (
         <div className="space-y-3">
           {events.map((ev) => (
-            <div
-              key={ev.id}
-              className="bg-card border border-border rounded-xl p-5"
-            >
+            <div key={ev.id} className="bg-card border border-border rounded-xl p-5">
               {editing?.id === ev.id ? (
                 <div className="space-y-2">
                   <input
@@ -169,70 +183,39 @@ export function EventsView({ user }) {
                     className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-fg outline-none"
                     placeholder="Event name"
                   />
-
-                  <input
-                    type="date"
-                    value={editDate}
-                    onChange={(e) => setEditDate(e.target.value)}
-                    className="bg-surface border border-border rounded-lg px-3 py-2 text-sm text-fg outline-none"
-                  />
-
                   <div className="flex gap-2">
-                    <button
-                      onClick={saveEdit}
-                      className="bg-accent text-white px-3 py-1.5 rounded-lg text-xs"
-                    >
-                      Save
-                    </button>
-
-                    <button
-                      onClick={() => setEditing(null)}
-                      className="bg-card border border-border text-muted px-3 py-1.5 rounded-lg text-xs"
-                    >
-                      Cancel
-                    </button>
+                    <input
+                      type="date"
+                      value={editDate}
+                      onChange={(e) => setEditDate(e.target.value)}
+                      className="flex-1 bg-surface border border-border rounded-lg px-3 py-2 text-sm text-fg outline-none"
+                    />
+                    <input
+                      type="date"
+                      value={editDeadline}
+                      onChange={(e) => setEditDeadline(e.target.value)}
+                      className="flex-1 bg-surface border border-border rounded-lg px-3 py-2 text-sm text-fg outline-none"
+                      placeholder="Deadline (optional)"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={saveEdit} className="bg-accent text-white px-3 py-1.5 rounded-lg text-xs">Save</button>
+                    <button onClick={() => setEditing(null)} className="bg-card border border-border text-muted px-3 py-1.5 rounded-lg text-xs">Cancel</button>
                   </div>
                 </div>
               ) : (
                 <div className="flex items-center gap-4">
-                  <div
-                    className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl"
-                    style={{ background: '#4f46e520' }}
-                  >
-                    📅
-                  </div>
-
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl" style={{ background: '#4f46e520' }}>📅</div>
                   <div className="flex-1">
-                    <h3 className="font-semibold text-fg">
-                      {ev.title}
-                    </h3>
-
-                    <p className="text-xs text-muted">
-                      {ev.date
-                        ? new Date(ev.date).toLocaleDateString()
-                        : 'No date'}
-                    </p>
+                    <h3 className="font-semibold text-fg">{ev.title}</h3>
+                    <p className="text-xs text-muted">{ev.date ? new Date(ev.date).toLocaleDateString() : 'No date'}</p>
                   </div>
-
-                  <span className="px-2 py-1 text-[10px] rounded-full bg-green/15 text-green">
-                    {ev.type}
-                  </span>
-
+                  <span className="px-2 py-1 text-[10px] rounded-full bg-surface text-muted border border-border">{ev.type}</span>
+                  {renderCountdown(ev.deadline)}
                   {isClubHead && (
                     <div className="flex gap-1">
-                      <button
-                        onClick={() => startEdit(ev)}
-                        className="px-2 py-1 bg-surface text-muted hover:text-fg rounded text-[10px]"
-                      >
-                        Edit
-                      </button>
-
-                      <button
-                        onClick={() => deleteEvent(ev.id)}
-                        className="px-2 py-1 bg-red/10 text-red rounded text-[10px]"
-                      >
-                        Del
-                      </button>
+                      <button onClick={() => startEdit(ev)} className="px-2 py-1 bg-surface text-muted hover:text-fg rounded text-[10px]">Edit</button>
+                      <button onClick={() => deleteEvent(ev.id)} className="px-2 py-1 bg-red/10 text-red rounded text-[10px]">Del</button>
                     </div>
                   )}
                 </div>
@@ -243,25 +226,12 @@ export function EventsView({ user }) {
       )}
 
       {showCreate && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-          onClick={() => setShowCreate(false)}
-        >
-          <div
-            className="bg-surface border border-border rounded-2xl w-[400px] max-w-[90%]"
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowCreate(false)}>
+          <div className="bg-surface border border-border rounded-2xl w-[400px] max-w-[90%]" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between p-5 border-b border-border">
               <h3 className="font-semibold text-fg">Create Event</h3>
-
-              <button
-                onClick={() => setShowCreate(false)}
-                className="p-1.5 hover:bg-card rounded-lg"
-              >
-                <span className="text-muted">✕</span>
-              </button>
+              <button onClick={() => setShowCreate(false)} className="p-1.5 hover:bg-card rounded-lg"><span className="text-muted">✕</span></button>
             </div>
-
             <form onSubmit={handleCreate} className="p-5 space-y-4">
               <input
                 value={newTitle}
@@ -270,36 +240,35 @@ export function EventsView({ user }) {
                 placeholder="Event name"
                 required
               />
-
-              <input
-                type="date"
-                value={newDate}
-                onChange={(e) => setNewDate(e.target.value)}
-                className="w-full bg-card border border-border rounded-xl px-4 py-2.5 text-sm text-fg outline-none focus:border-accent"
-              />
-
+              <div className="flex gap-2">
+                <div className="flex-1 space-y-1">
+                  <label className="text-xs text-muted">Event Date</label>
+                  <input
+                    type="date"
+                    value={newDate}
+                    onChange={(e) => setNewDate(e.target.value)}
+                    className="w-full bg-card border border-border rounded-xl px-4 py-2.5 text-sm text-fg outline-none focus:border-accent"
+                    required
+                  />
+                </div>
+                <div className="flex-1 space-y-1">
+                  <label className="text-xs text-muted">Deadline (Optional)</label>
+                  <input
+                    type="date"
+                    value={newDeadline}
+                    onChange={(e) => setNewDeadline(e.target.value)}
+                    className="w-full bg-card border border-border rounded-xl px-4 py-2.5 text-sm text-fg outline-none focus:border-accent"
+                  />
+                </div>
+              </div>
               <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => setShowCreate(false)}
-                  className="flex-1 py-2 rounded-lg border text-sm"
-                  style={{ borderColor: '#2a2a32', color: '#aaa' }}
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="submit"
-                  className="flex-1 py-2 rounded-lg text-white text-sm font-medium"
-                  style={{ background: '#4f46e5' }}
-                >
-                  Create
-                </button>
+                <button type="button" onClick={() => setShowCreate(false)} className="flex-1 py-2 rounded-lg border" style={{ borderColor: '#2a2a32', color: '#aaa' }}>Cancel</button>
+                <button type="submit" className="flex-1 py-2 rounded-lg text-white text-sm font-medium" style={{ background: '#4f46e5' }}>Create</button>
               </div>
             </form>
           </div>
         </div>
       )}
     </div>
-  )
+  );
 }

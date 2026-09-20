@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { TranscriptInput } from '../components/meetings/TranscriptInput'
 import { ExtractedActions } from '../components/meetings/ExtractedActions'
+import { AiChatAssistant } from '../components/meetings/AiChatAssistant'
 import { dev2Service } from '../services/dev2Service'
 
 export function MeetingsView() {
@@ -16,14 +17,21 @@ export function MeetingsView() {
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-fg">Meetings</h2>
-      <div className="grid grid-cols-2 gap-6">
-        <TranscriptInput meetingId={meetings[0]?.id} onResult={(tasks) => setExtractedActions(tasks.map((task, index) => ({
-          id: task.taskId || `${task.title}-${index}`,
-          text: task.title,
-          owner: task.owner || 'Unassigned',
-          priority: task.priority || 'medium',
-        })))} />
-        <ExtractedActions actions={extractedActions || undefined} />
+      <div className="grid grid-cols-3 gap-6 h-[500px]">
+        <div className="col-span-1 flex flex-col gap-6">
+          <TranscriptInput meetingId={meetings[0]?.id} onResult={(tasks) => setExtractedActions(tasks.map((task, index) => ({
+            id: task.taskId || `${task.title}-${index}`,
+            text: task.title,
+            owner: task.owner || 'Unassigned',
+            priority: task.priority || 'medium',
+          })))} />
+        </div>
+        <div className="col-span-1">
+          <ExtractedActions actions={extractedActions || undefined} />
+        </div>
+        <div className="col-span-1 h-full">
+          <AiChatAssistant eventId={meetings[0]?.id} />
+        </div>
       </div>
       <div>
         <h3 className="text-lg font-semibold text-fg mb-4">Past Meetings</h3>

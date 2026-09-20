@@ -1,11 +1,19 @@
 import express from 'express';
 import mongoose from 'mongoose';
+import multer from 'multer';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const pdfParse = require('pdf-parse');
 import Document from '../models/Document.js';
 import Event from '../models/Event.js';
+import Task from '../models/Task.js';
+import User from '../models/User.js';
 import { AppError } from '../middleware/errorMiddleware.js';
 import { ROLES } from '../middleware/authMiddleware.js';
+import { parseDocumentText } from '../services/documentParserService.js';
 
 const router = express.Router();
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } }); // 10MB limit
 
 function normalizeDocument(document) {
   const doc = document?.toObject ? document.toObject() : document;
@@ -22,6 +30,49 @@ function normalizeDocument(document) {
   };
 }
 
+function escapeRegex(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+async function findUserByName(name) {
+  if (!name) return null;
+  return User.findOne({ name: new RegExp(`^${escapeRegex(name)}$`, 'i') }).select('_id name');
+}
+
+async function saveTasks(tasks, document, eventId) {
+  if (!tasks || !tasks.length) return [];
+  
+  const existingTasks = await Task.find({ event: eventId }).select('_id title');
+  const existingTitles = new Map(existingTasks.map((task) => [task.title.trim().toLowerCase(), task]));
+  const savedTasks = [];
+
+  for (const task of tasks) {
+    const normalizedTitle = task.title.trim().toLowerCase();
+    const existingTask = existingTitles.get(normalizedTitle);
+
+    if (existingTask) {
+      savedTasks.push({ ...task, taskId: existingTask._id, persisted: true });
+      continue;
+    }
+
+    const owner = await findUserByName(task.owner);
+    const createdTask = await Task.create({
+      event: eventId,
+      title: task.title,
+      description: task.description,
+      owner: owner?._id,
+      deadline: task.deadline,
+      priority: task.priority,
+      source: 'ai'
+    });
+
+    existingTitles.set(normalizedTitle, createdTask);
+    savedTasks.push({ ...task, taskId: createdTask._id, persisted: true });
+  }
+
+  return savedTasks;
+}
+
 router.get('/', async (req, res, next) => {
   try {
     const documents = await Document.find().populate('event', 'name').populate('uploadedBy', 'name email role').sort({ createdAt: -1 });
@@ -34,13 +85,9 @@ router.get('/', async (req, res, next) => {
   }
 });
 
-router.post('/', async (req, res, next) => {
+router.post('/', upload.single('file'), async (req, res, next) => {
   try {
-    const { event, title, description, type, content } = req.body || {};
-
-    if (String(type || '').trim().toLowerCase() === 'official' && req.user.role !== ROLES.ADMIN) {
-      throw new AppError('Only administrators can upload official club documents', 403);
-    }
+    const { event, title, description, type } = req.body || {};
 
     if (!event || !mongoose.isValidObjectId(String(event))) {
       throw new AppError('event is required and must be a valid ObjectId', 400);
@@ -55,16 +102,46 @@ router.post('/', async (req, res, next) => {
       throw new AppError('title is required', 400);
     }
 
+    let extractedText = req.body.content || '';
+    let parsedData = null;
+    let fileType = type || 'PDF';
+
+    if (req.file) {
+      const mimetype = req.file.mimetype;
+      if (mimetype === 'application/pdf') {
+        const pdfData = await pdfParse(req.file.buffer);
+        extractedText = pdfData.text;
+        fileType = 'PDF';
+      } else if (mimetype === 'text/plain') {
+        extractedText = req.file.buffer.toString('utf-8');
+        fileType = 'TXT';
+      }
+      // Depending on other requirements, we can add docx parsing here
+    }
+
     const doc = await Document.create({
       event: eventDoc._id,
       title: title.trim(),
       description: description || '',
-      type: type || 'PDF',
-      content: content || '',
+      type: fileType,
+      content: extractedText.substring(0, 1000), // Only save a preview of content to DB
       uploadedBy: req.user.id,
     });
+    
+    let createdTasks = [];
+    if (extractedText) {
+       parsedData = await parseDocumentText(extractedText);
+       if (parsedData && parsedData.tasks) {
+         createdTasks = await saveTasks(parsedData.tasks, doc, eventDoc._id);
+       }
+    }
 
-    res.status(201).json({ success: true, data: normalizeDocument(doc) });
+    res.status(201).json({ 
+      success: true, 
+      data: normalizeDocument(doc),
+      aiAnalysis: parsedData,
+      createdTasks 
+    });
   } catch (error) {
     next(error);
   }

@@ -5,7 +5,8 @@ import Event from '../models/Event.js';
 import User from '../models/User.js';
 import { AppError } from '../middleware/errorMiddleware.js';
 import { ROLES } from '../middleware/authMiddleware.js';
-import { requireRole } from '../middleware/roleMiddleware.js';
+import { requireClubLead } from '../middleware/clubPermissionMiddleware.js';
+
 
 const router = express.Router();
 
@@ -40,6 +41,7 @@ function normalizeTask(task) {
     dueDate: deadline ? new Date(taskDoc.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'TBD',
     owner: owner ? { id: owner._id || owner.id, name: owner.name, email: owner.email || '' } : null,
     event: taskDoc.event || null,
+    club: taskDoc.club || null,
     tags: taskDoc.source ? [taskDoc.source] : [],
     createdAt: taskDoc.createdAt,
     updatedAt: taskDoc.updatedAt,
@@ -98,8 +100,33 @@ async function resolveEvent(eventValue) {
 
 router.get('/', async (req, res, next) => {
   try {
-    const query = req.user.role === ROLES.VOLUNTEER ? { owner: req.user.id } : {};
-    const tasks = await Task.find(query).populate('owner', 'name email role').populate('event', 'name').sort({ updatedAt: -1 });
+    const { clubId } = req.query;
+    let query = {};
+
+    if (clubId) {
+      // Find all events that belong to this club first
+      const clubEvents = await Event.find({ club: clubId }).select('_id');
+      const eventIds = clubEvents.map(e => e._id);
+      
+      if (eventIds.length > 0) {
+        // Tasks that have this clubId set, OR that belong to events of this club
+        query = { $or: [{ club: clubId }, { event: { $in: eventIds } }] };
+      } else {
+        // Try direct club field match as fallback
+        query = { club: clubId };
+      }
+    }
+
+    // Volunteers only see their own tasks
+    if (req.user.role === ROLES.VOLUNTEER && !clubId) {
+      query.owner = req.user.id;
+    }
+
+    const tasks = await Task.find(query)
+      .populate('owner', 'name email role')
+      .populate('event', 'name')
+      .sort({ updatedAt: -1 });
+
     res.status(200).json({
       success: true,
       data: tasks.map(normalizeTask),
@@ -109,9 +136,10 @@ router.get('/', async (req, res, next) => {
   }
 });
 
-router.post('/', requireRole(ROLES.ADMIN, ROLES.EVENT_MANAGER), async (req, res, next) => {
+// Only club leads can create tasks
+router.post('/', requireClubLead, async (req, res, next) => {
   try {
-    const { title, description, owner, deadline, priority, status, event, source } = req.body || {};
+    const { title, description, owner, deadline, priority, status, event, source, clubId } = req.body || {};
 
     if (!title || typeof title !== 'string' || !title.trim()) {
       throw new AppError('title is required', 400);
@@ -120,6 +148,7 @@ router.post('/', requireRole(ROLES.ADMIN, ROLES.EVENT_MANAGER), async (req, res,
     const taskEvent = await resolveEvent(event);
     const task = await Task.create({
       event: taskEvent._id,
+      club: clubId || null,
       title: title.trim(),
       description: description || '',
       owner: await resolveOwner(owner),
@@ -176,7 +205,8 @@ router.patch('/:id', async (req, res, next) => {
   }
 });
 
-router.delete('/:id', requireRole(ROLES.ADMIN, ROLES.EVENT_MANAGER), async (req, res, next) => {
+// Only club leads can delete tasks
+router.delete('/:id', requireClubLead, async (req, res, next) => {
   try {
     const { id } = req.params;
     if (!mongoose.isValidObjectId(id)) {

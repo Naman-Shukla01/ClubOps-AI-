@@ -20,22 +20,14 @@ export default function Registration({ onRegister }) {
       setError("Please fill all required fields.");
       return;
     }
-
     setLoading(true);
-
     try {
       let registeredUser = null;
       try {
         const res = await apiRequest("/auth/register", {
           method: "POST",
-          body: JSON.stringify({
-            name: name.trim(),
-            email: email.trim(),
-            password,
-            role,
-          }),
+          body: JSON.stringify({ name: name.trim(), email: email.trim(), password, role }),
         });
-
         if (res?.token && res?.user) {
           localStorage.setItem("accessToken", res.token);
           registeredUser = res.user;
@@ -91,9 +83,7 @@ export default function Registration({ onRegister }) {
           {role === "club-head" && (
             <input className="w-full px-4 py-3 rounded-lg text-white outline-none focus:border-indigo-500" style={{ background: "#1e1e24", border: "1px solid #2a2a32" }} placeholder="Your Club Name (optional)" value={clubName} onChange={(e) => setClubName(e.target.value)} />
           )}
-          <button type="submit" disabled={loading} className="w-full py-3 rounded-lg font-bold text-white transition hover:bg-indigo-600 disabled:opacity-50" style={{ background: "#4f46e5" }}>
-            {loading ? "Registering..." : "Register"}
-          </button>
+          <button type="submit" disabled={loading} className="w-full py-3 rounded-lg font-bold text-white transition hover:bg-indigo-600 disabled:opacity-50" style={{ background: "#4f46e5" }}>{loading ? "Registering..." : "Register"}</button>
         </form>
         <p className="text-center mt-4 text-sm" style={{ color: "#888" }}>Already have an account? <Link to="/login" className="text-indigo-400 font-semibold">Login</Link></p>
       </div>
