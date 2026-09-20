@@ -23,12 +23,15 @@ export default function Registration({ onRegister }) {
     setLoading(true);
     try {
       let registeredUser = null;
+      let token = null;
+
       try {
         const res = await apiRequest("/auth/register", {
           method: "POST",
           body: JSON.stringify({ name: name.trim(), email: email.trim(), password, role }),
         });
-        if (res?.token && res?.user) {
+        if (res?.token) {
+          token = res.token;
           localStorage.setItem("accessToken", res.token);
           registeredUser = res.user;
         }
@@ -37,7 +40,7 @@ export default function Registration({ onRegister }) {
       }
 
       let activeClub = null;
-      if (res?.token && (role === "club-head" || clubName.trim())) {
+      if (token && (role === "club-head" || clubName.trim())) {
         try {
           const clubRes = await apiRequest("/clubs", {
             method: "POST",

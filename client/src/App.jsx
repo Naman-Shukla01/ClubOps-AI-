@@ -3,6 +3,7 @@ import {
   BrowserRouter as Router,
   Routes,
   Route,
+  Navigate,
 } from "react-router-dom";
 
 import Login from "./pages/Login";
@@ -171,18 +172,19 @@ export default function App() {
         <Route
           path="/register"
           element={
-            <Registration
-              onRegister={(newUser) => {
-
-                setUser(newUser);
-
-                localStorage.setItem(
-                  "currentUser",
-                  JSON.stringify(newUser)
-                );
-
-              }}
-            />
+            user ? (
+              <Navigate to="/" replace />
+            ) : (
+              <Registration
+                onRegister={(newUser) => {
+                  setUser(newUser);
+                  localStorage.setItem(
+                    "currentUser",
+                    JSON.stringify(newUser)
+                  );
+                }}
+              />
+            )
           }
         />
 
@@ -190,18 +192,19 @@ export default function App() {
         <Route
           path="/login"
           element={
-            <Login
-              onLogin={(loggedUser) => {
-
-                setUser(loggedUser);
-
-                localStorage.setItem(
-                  "currentUser",
-                  JSON.stringify(loggedUser)
-                );
-
-              }}
-            />
+            user ? (
+              <Navigate to="/" replace />
+            ) : (
+              <Login
+                onLogin={(loggedUser) => {
+                  setUser(loggedUser);
+                  localStorage.setItem(
+                    "currentUser",
+                    JSON.stringify(loggedUser)
+                  );
+                }}
+              />
+            )
           }
         />
 

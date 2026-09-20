@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { apiRequest } from '../services/api';
 
 export default function Login({ onLogin }) {
@@ -7,6 +7,7 @@ export default function Login({ onLogin }) {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -18,7 +19,7 @@ export default function Login({ onLogin }) {
         // Attempt login
         res = await apiRequest('/auth/login', {
           method: 'POST',
-          body: JSON.stringify({ email, password }),
+          body: JSON.stringify({ email: email.trim(), password }),
         });
       } catch (loginErr) {
         // If login fails with 401, auto‑register to keep demo flow
@@ -28,7 +29,7 @@ export default function Login({ onLogin }) {
             .replace(/\b\w/g, (c) => c.toUpperCase());
           res = await apiRequest('/auth/register', {
             method: 'POST',
-            body: JSON.stringify({ name, email, password }),
+            body: JSON.stringify({ name, email: email.trim(), password }),
           });
         } else {
           throw loginErr;
@@ -39,9 +40,33 @@ export default function Login({ onLogin }) {
         localStorage.setItem('accessToken', res.token);
       }
 
-      const user = res?.user || { name: email, email };
+      let user = res?.user || { name: email, email };
+
+      // Initialize default active club if not present
+      try {
+        const clubsRes = await apiRequest('/clubs', { method: 'GET' });
+        const clubsList = Array.isArray(clubsRes?.data) ? clubsRes.data : (Array.isArray(clubsRes) ? clubsRes : []);
+        if (clubsList.length > 0) {
+          const first = clubsList[0];
+          user = {
+            ...user,
+            activeClubId: user.activeClubId || first.id || first._id,
+            activeClubName: user.activeClubName || first.name,
+            activeClubIcon: user.activeClubIcon || first.icon || '🚀',
+            joinedClubs: clubsList,
+          };
+        }
+      } catch {
+        if (!user.activeClubId) {
+          user.activeClubId = '1';
+          user.activeClubName = 'Tech Innovators Club';
+          user.activeClubIcon = '💻';
+        }
+      }
+
       localStorage.setItem('currentUser', JSON.stringify(user));
       if (onLogin) onLogin(user);
+      navigate('/');
     } catch (err) {
       setError(err?.message || 'Invalid email or password (min 8 chars required for new accounts)');
     } finally {
