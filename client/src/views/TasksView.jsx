@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { dev1Service } from '../services/dev1Service';
 import { dev2Service } from '../services/dev2Service';
+import { canManageClubWork } from '../utils/permissions';
 
 export function TasksView({ user }) {
   const [tasks, setTasks] = useState([]);
@@ -17,34 +18,49 @@ export function TasksView({ user }) {
   const [newTitle, setNewTitle] = useState('');
   const [newPriority, setNewPriority] = useState('medium');
   const [newAssignee, setNewAssignee] = useState('');
+  const [volunteerSearch, setVolunteerSearch] = useState('');
   const [newDueDate, setNewDueDate] = useState('');
   const [newEventId, setNewEventId] = useState('');
 
-  const isClubHead =
-    user?.role === 'club-head' ||
-    user?.role === 'lead' ||
-    user?.role === 'EVENT_MANAGER' ||
-    user?.role === 'ADMIN';
+  const isClubHead = canManageClubWork(user);
 
   const clubId = user?.activeClubId;
+
+  const [volunteers, setVolunteers] = useState([]);
 
   useEffect(() => {
     loadData();
   }, [clubId]);
 
+  useEffect(() => {
+    if (!clubId || !showCreate || !isClubHead) return;
+    const timer = setTimeout(async () => {
+      try {
+        const volsData = await dev1Service.getVolunteers(clubId, volunteerSearch);
+        setVolunteers(Array.isArray(volsData) ? volsData : Array.isArray(volsData?.data) ? volsData.data : []);
+      } catch {
+        setVolunteers([]);
+      }
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [clubId, showCreate, isClubHead, volunteerSearch]);
+
   const loadData = async () => {
     setLoading(true);
     try {
-      const [tasksData, eventsData] = await Promise.all([
-        dev1Service.getTasks(),
-        dev2Service.getEvents(),
+      const [tasksData, eventsData, volsData] = await Promise.all([
+        dev1Service.getTasks(clubId),
+        dev2Service.getEvents(clubId),
+        clubId ? dev1Service.getVolunteers(clubId).catch(() => []) : Promise.resolve([]),
       ]);
       setTasks(Array.isArray(tasksData) ? tasksData : []);
       setEvents(Array.isArray(eventsData) ? eventsData : []);
+      setVolunteers(Array.isArray(volsData) ? volsData : Array.isArray(volsData?.data) ? volsData.data : []);
     } catch (error) {
       console.error('Failed to load tasks/events:', error);
       setTasks([]);
       setEvents([]);
+      setVolunteers([]);
     } finally {
       setLoading(false);
     }
@@ -57,17 +73,18 @@ export function TasksView({ user }) {
       title: newTitle.trim(),
       status: 'todo',
       priority: newPriority,
-      assignee: newAssignee.trim() || user?.name || 'Unassigned',
+      owner: newAssignee || undefined,
       dueDate: newDueDate || 'TBD',
+      event: newEventId || undefined,
+      clubId: clubId || undefined,
     };
     try {
       const created = await dev1Service.createTask(taskPayload);
       const newTask = created?.data || created || { ...taskPayload, id: Date.now() };
       setTasks((prev) => [newTask, ...prev]);
     } catch (err) {
-      console.warn('Backend task creation error, fallback local insert:', err);
-      const localTask = { id: Date.now(), ...taskPayload };
-      setTasks((prev) => [localTask, ...prev]);
+      console.warn('Backend task creation error:', err);
+      return;
     }
     setNewTitle('');
     setNewPriority('medium');
@@ -196,43 +213,57 @@ export function TasksView({ user }) {
             </div>
           </div>
         ) : (
-          <div className="flex items-center gap-3">
-            <span className={`px-2 py-0.5 text-[10px] rounded-full ${priorityColors[task.priority] || 'bg-muted/15 text-muted'}`}> {task.priority || 'medium'} </span>
-            <span className={`px-2 py-0.5 text-[10px] rounded-full ${statusColors[task.status] || 'bg-muted/15 text-muted'}`}> {task.status || 'todo'} </span>
-            <span className="flex-1 text-sm text-fg font-medium">{task.title}</span>
-            <span className="text-xs text-muted">👤 {task.assignee || 'Unassigned'}</span>
-            {task.event?.name && (
-              <span className="text-xs text-accent px-2 py-0.5 bg-accent/10 rounded-full flex items-center gap-1 border border-accent/20">
-                📅 {task.event.name}
-              </span>
-            )}
-            {isClubHead && (
-              <div className="flex gap-1">
-                <button onClick={() => startEdit(task)} className="px-2 py-1 bg-surface text-muted hover:text-fg rounded text-[10px]">Edit</button>
-                <button onClick={() => deleteTask(task.id)} className="px-2 py-1 bg-red/10 text-red rounded text-[10px]">Del</button>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex flex-1 flex-col gap-1.5 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className={`px-2 py-0.5 text-[10px] rounded-full shrink-0 ${priorityColors[task.priority] || 'bg-muted/15 text-muted'}`}>
+                  {task.priority || 'medium'}
+                </span>
+                <span className={`px-2 py-0.5 text-[10px] rounded-full shrink-0 ${statusColors[task.status] || 'bg-muted/15 text-muted'}`}>
+                  {task.status || 'todo'}
+                </span>
+                {task.event?.name && (
+                  <span className="text-[10px] text-accent px-2 py-0.5 bg-accent/10 rounded-full flex items-center gap-1 border border-accent/20 shrink-0">
+                    📅 {task.event.name}
+                  </span>
+                )}
               </div>
-            )}
-            {canUpdate && (
-              <button
-                onClick={() =>
-                  handleStatusChange(
-                    task,
-                    task.status === 'todo'
-                      ? 'in-progress'
+              <h4 className="text-sm font-medium text-fg break-words">{task.title}</h4>
+            </div>
+
+            <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0 pt-2 sm:pt-0 border-t border-border/50 sm:border-0">
+              <span className="text-xs text-muted">👤 {task.assignee || 'Unassigned'}</span>
+              
+              <div className="flex items-center gap-1.5 ml-auto sm:ml-0">
+                {isClubHead && (
+                  <div className="flex gap-1">
+                    <button onClick={() => startEdit(task)} className="px-2 py-1 bg-surface border border-border text-muted hover:text-fg rounded text-[10px]">Edit</button>
+                    <button onClick={() => deleteTask(task.id)} className="px-2 py-1 bg-red/10 border border-red/20 text-red rounded text-[10px]">Del</button>
+                  </div>
+                )}
+                {canUpdate && (
+                  <button
+                    onClick={() =>
+                      handleStatusChange(
+                        task,
+                        task.status === 'todo'
+                          ? 'in-progress'
+                          : task.status === 'in-progress' || task.status === 'in_progress'
+                          ? 'completed'
+                          : 'todo'
+                      )
+                    }
+                    className="px-2.5 py-1 bg-accent/20 text-accent font-medium rounded text-[10px] hover:bg-accent/30 transition-colors"
+                  >
+                    {task.status === 'todo'
+                      ? 'Start Task'
                       : task.status === 'in-progress' || task.status === 'in_progress'
-                      ? 'completed'
-                      : 'todo'
-                  )
-                }
-                className="px-2.5 py-1 bg-accent/20 text-accent font-medium rounded text-[10px] hover:bg-accent/30 transition-colors"
-              >
-                {task.status === 'todo'
-                  ? 'Start Task'
-                  : task.status === 'in-progress' || task.status === 'in_progress'
-                  ? 'Mark Done'
-                  : 'Reopen'}
-              </button>
-            )}
+                      ? 'Mark Done'
+                      : 'Reopen'}
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         )}
         {task.updates && task.updates.length > 0 && (
@@ -250,7 +281,7 @@ export function TasksView({ user }) {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
         <div>
           <h2 className="text-2xl font-bold text-fg">{clubId ? 'Club Tasks' : 'Tasks'}</h2>
           <p className="text-muted text-sm">
@@ -267,7 +298,7 @@ export function TasksView({ user }) {
         )}
       </div>
 
-      <div className="flex gap-2 mb-6">
+      <div className="flex flex-wrap gap-2 mb-6">
         {['all', 'todo', 'in-progress', 'completed'].map((f) => (
           <button
             key={f}
@@ -316,7 +347,7 @@ export function TasksView({ user }) {
 
       {showCreate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowCreate(false)}>
-          <div className="bg-surface border border-border rounded-2xl w-[500px] max-w-[90%]" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-surface border border-border rounded-2xl w-[500px] max-w-[calc(100%-1.5rem)] max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between p-5 border-b border-border">
               <h3 className="font-semibold text-fg">Create Task</h3>
               <button onClick={() => setShowCreate(false)} className="p-1.5 hover:bg-card rounded-lg"><span className="text-muted">✕</span></button>
@@ -329,7 +360,7 @@ export function TasksView({ user }) {
                 placeholder="Task title"
                 required
               />
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-xs text-muted">Event</label>
                   <select
@@ -358,11 +389,23 @@ export function TasksView({ user }) {
                 <div className="space-y-1">
                   <label className="text-xs text-muted">Assignee</label>
                   <input
+                    value={volunteerSearch}
+                    onChange={(e) => setVolunteerSearch(e.target.value)}
+                    className="w-full bg-card border border-border rounded-xl px-4 py-2.5 text-sm text-fg outline-none focus:border-accent mb-2"
+                    placeholder="Search club volunteers"
+                  />
+                  <select
                     value={newAssignee}
                     onChange={(e) => setNewAssignee(e.target.value)}
-                    className="w-full bg-card border border-border rounded-xl px-4 py-2.5 text-sm text-fg outline-none"
-                    placeholder="Assignee"
-                  />
+                    className="w-full bg-card border border-border rounded-xl px-4 py-2.5 text-sm text-fg outline-none focus:border-accent"
+                  >
+                    <option value="">Select Volunteer / Assignee</option>
+                    {volunteers.map((vol) => (
+                      <option key={vol.id || vol._id} value={vol.id || vol._id}>
+                        {vol.name} {vol.role ? `(${vol.role})` : ''}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs text-muted">Due Date</label>

@@ -65,8 +65,8 @@ export function DocumentsAndRisksView() {
   }
 
   return (
-    <div className="flex gap-6 h-full">
-      <div className="w-[380px] min-w-[340px] flex flex-col gap-6 overflow-y-auto">
+    <div className="flex flex-col lg:flex-row gap-6 h-full min-w-0">
+      <div className="w-full lg:w-[380px] lg:min-w-[340px] flex flex-col gap-6 overflow-y-auto">
         <div>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold text-fg">📁 Documents</h2>
@@ -87,13 +87,13 @@ export function DocumentsAndRisksView() {
           </div>
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto">
-        <div className="flex items-center justify-between mb-6">
+      <div className="flex-1 min-w-0 overflow-y-auto">
+        <div className="flex items-center justify-between gap-3 mb-6">
           <h2 className="text-lg font-bold text-fg">⚠️ Risk Radar</h2>
           <span className="text-xs text-muted bg-card px-3 py-1.5 rounded-full">{risks.length} risks</span>
         </div>
         {loading ? <p className="text-muted">Loading...</p> : (
-          <div className="flex gap-5">
+          <div className="flex gap-5 overflow-x-auto pb-2">
             {riskColumns.map((col) => (
               <RiskColumn key={col.title} title={col.title} risks={risks.filter((r) => r.severity === col.sev)} color={col.color} />
             ))}

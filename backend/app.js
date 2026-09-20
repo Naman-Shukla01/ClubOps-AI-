@@ -14,6 +14,7 @@ import taskRoutes from './routes/taskRoutes.js';
 import volunteerRoutes from './routes/volunteerRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import clubRoutes from './routes/clubRoutes.js';
+import announcementRoutes from './routes/announcementRoutes.js';
 import { authenticate } from './middleware/authMiddleware.js';
 import { errorHandler, notFound } from './middleware/errorMiddleware.js';
 import { configureGoogleStrategy } from './config/googleAuth.js';
@@ -74,6 +75,7 @@ app.use('/api/actions', authenticate, actionRoutes);
 app.use('/api/analytics', authenticate, analyticsRoutes);
 app.use('/api/users', authenticate, userRoutes);
 app.use('/api/clubs', authenticate, clubRoutes);
+app.use('/api/announcements', authenticate, announcementRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

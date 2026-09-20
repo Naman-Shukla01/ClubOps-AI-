@@ -28,7 +28,7 @@ export function CreateClubModal({ onClose, onCreate, initialClub }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-surface border border-border rounded-2xl w-[480px] max-w-[90%]" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-surface border border-border rounded-2xl w-[480px] max-w-[calc(100%-1.5rem)] max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between p-5 border-b border-border">
           <h3 className="font-semibold text-fg">{initialClub ? 'Edit Club Details' : 'Create New Club'}</h3>
           <button onClick={onClose} className="p-1.5 hover:bg-card rounded-lg"><X size={16} className="text-muted" /></button>
@@ -44,7 +44,7 @@ export function CreateClubModal({ onClose, onCreate, initialClub }) {
             <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2}
               className="w-full bg-card border border-border rounded-xl px-4 py-2.5 text-sm text-fg outline-none focus:border-accent resize-none" placeholder="What does your club do?" />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-xs text-muted mb-1.5 block">Max Members</label>
               <input type="number" value={form.maxMembers} onChange={(e) => setForm({ ...form, maxMembers: parseInt(e.target.value) || 50 })} min="5" max="200"

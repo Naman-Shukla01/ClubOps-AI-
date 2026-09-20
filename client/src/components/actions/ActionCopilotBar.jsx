@@ -7,6 +7,7 @@ import {
   Edit2,
 } from 'lucide-react'
 import { dev1Service } from '../../services/dev1Service'
+import { canManageClubWork } from '../../utils/permissions'
 
 const examples = [
   'Create a task for finalizing venue contract',
@@ -14,17 +15,25 @@ const examples = [
   'Update budget for catering increase',
 ]
 
-export default function ActionCopilotBar({ onTaskCreated }) {
+export default function ActionCopilotBar({ user, onTaskCreated }) {
   const [command, setCommand] = useState('')
   const [loading, setLoading] = useState(false)
   const [createdTask, setCreatedTask] = useState(null)
   const [editing, setEditing] = useState(false)
   const [editForm, setEditForm] = useState({})
+  const [errorMsg, setErrorMsg] = useState('')
+
+  const canCreateTasks = canManageClubWork(user)
+
+  if (!canCreateTasks) {
+    return null
+  }
 
   const handleSubmit = async () => {
     if (!command.trim()) return
 
     setLoading(true)
+    setErrorMsg('')
 
     const task = {
       id: Date.now(),
@@ -34,6 +43,7 @@ export default function ActionCopilotBar({ onTaskCreated }) {
       assignee: '',
       tags: ['copilot'],
       dueDate: '',
+      clubId: user?.activeClubId || undefined,
     }
 
     try {
@@ -57,13 +67,9 @@ export default function ActionCopilotBar({ onTaskCreated }) {
           title: created.title || task.title,
         })
       }
-    } catch {
-      // Keep the prototype functional even when backend is unavailable.
-      setCreatedTask(task)
-
-      if (onTaskCreated) {
-        onTaskCreated(task)
-      }
+    } catch (error) {
+      setErrorMsg(error?.message || 'Unable to create task.')
+      setTimeout(() => setErrorMsg(''), 4000)
     }
 
     setCommand('')
@@ -214,7 +220,7 @@ export default function ActionCopilotBar({ onTaskCreated }) {
             placeholder="Task title"
           />
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             <select
               value={
                 editForm.priority || 'medium'
@@ -310,6 +316,11 @@ export default function ActionCopilotBar({ onTaskCreated }) {
       </div>
 
       <div className="p-4">
+        {errorMsg && (
+          <div className="mb-3 bg-red/10 border border-red/30 text-red text-xs p-2.5 rounded-xl">
+            ⚠️ {errorMsg}
+          </div>
+        )}
         <div className="flex items-center gap-2 bg-card border border-border rounded-xl p-2 focus-within:border-accent transition-colors">
           <input
             value={command}
@@ -346,14 +357,14 @@ export default function ActionCopilotBar({ onTaskCreated }) {
           </button>
         </div>
 
-        <div className="flex flex-wrap gap-2 mt-3">
+        <div className="flex gap-2 mt-3 overflow-x-auto pb-1 max-w-full">
           {examples.map((example) => (
             <button
               key={example}
               onClick={() =>
                 setCommand(example)
               }
-              className="text-[11px] bg-card text-muted hover:text-fg hover:bg-cardHover px-2.5 py-1 rounded-lg transition-colors"
+              className="text-[11px] bg-card text-muted hover:text-fg hover:bg-cardHover px-2.5 py-1 rounded-lg transition-colors whitespace-nowrap shrink-0"
             >
               {example}
             </button>

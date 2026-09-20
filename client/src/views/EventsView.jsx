@@ -29,7 +29,7 @@ export function EventsView({ user }) {
   const loadEvents = async () => {
     setLoading(true);
     try {
-      const response = await dev2Service.getEvents();
+      const response = await dev2Service.getEvents(clubId);
       const list = Array.isArray(response)
         ? response
         : Array.isArray(response?.data)
@@ -76,18 +76,7 @@ export function EventsView({ user }) {
         clubId: clubId || null,
       };
       setEvents((prev) => [newEv, ...prev]);
-    } catch (err) {
-      console.warn('Create event backend failed, fallback local update:', err);
-      const localEv = {
-        id: String(Date.now()),
-        title: newTitle.trim(),
-        date: startDate,
-        type: 'upcoming',
-        deadline: null,
-        clubId: clubId || null,
-      };
-      setEvents((prev) => [localEv, ...prev]);
-    }
+    } catch (err) { console.warn('Create event backend failed:', err); }
     setNewTitle('');
     setNewDate('');
     setShowCreate(false);
@@ -144,7 +133,7 @@ export function EventsView({ user }) {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
         <div>
           <h2 className="text-2xl font-bold text-fg">{user?.activeClubId ? 'Club Events' : 'Events'}</h2>
           <p className="text-muted text-sm">
@@ -205,20 +194,27 @@ export function EventsView({ user }) {
                   </div>
                 </div>
               ) : (
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl" style={{ background: '#4f46e520' }}>📅</div>
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-fg">{ev.title}</h3>
-                    <p className="text-xs text-muted">{ev.date ? new Date(ev.date).toLocaleDateString() : 'No date'}</p>
-                  </div>
-                  <span className="px-2 py-1 text-[10px] rounded-full bg-surface text-muted border border-border">{ev.type}</span>
-                  {renderCountdown(ev.deadline)}
-                  {isClubHead && (
-                    <div className="flex gap-1">
-                      <button onClick={() => startEdit(ev)} className="px-2 py-1 bg-surface text-muted hover:text-fg rounded text-[10px]">Edit</button>
-                      <button onClick={() => deleteEvent(ev.id)} className="px-2 py-1 bg-red/10 text-red rounded text-[10px]">Del</button>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-start gap-3 min-w-0">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center text-xl sm:text-2xl shrink-0" style={{ background: '#4f46e520' }}>📅</div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-semibold text-fg text-sm sm:text-base break-words">{ev.title}</h3>
+                      <p className="text-xs text-muted mt-0.5">{ev.date ? new Date(ev.date).toLocaleDateString() : 'No date'}</p>
                     </div>
-                  )}
+                  </div>
+
+                  <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0 pt-2 sm:pt-0 border-t border-border/50 sm:border-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="px-2 py-0.5 text-[10px] rounded-full bg-surface text-muted border border-border">{ev.type}</span>
+                      {renderCountdown(ev.deadline)}
+                    </div>
+                    {isClubHead && (
+                      <div className="flex gap-1 ml-auto sm:ml-0">
+                        <button onClick={() => startEdit(ev)} className="px-2 py-1 bg-surface border border-border text-muted hover:text-fg rounded text-[10px]">Edit</button>
+                        <button onClick={() => deleteEvent(ev.id)} className="px-2 py-1 bg-red/10 border border-red/20 text-red rounded text-[10px]">Del</button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -228,7 +224,7 @@ export function EventsView({ user }) {
 
       {showCreate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowCreate(false)}>
-          <div className="bg-surface border border-border rounded-2xl w-[400px] max-w-[90%]" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-surface border border-border rounded-2xl w-[400px] max-w-[calc(100%-1.5rem)] max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between p-5 border-b border-border">
               <h3 className="font-semibold text-fg">Create Event</h3>
               <button onClick={() => setShowCreate(false)} className="p-1.5 hover:bg-card rounded-lg"><span className="text-muted">✕</span></button>
@@ -241,7 +237,7 @@ export function EventsView({ user }) {
                 placeholder="Event name"
                 required
               />
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <div className="flex-1 space-y-1">
                   <label className="text-xs text-muted">Event Date</label>
                   <input

@@ -25,12 +25,7 @@ export async function handleAiChat(req, res, next) {
 
     // Volunteers cannot trigger mutating AI actions
     if (isVolunteer && looksLikeMutation(textPrompt)) {
-      return res.status(200).json({
-        success: false,
-        reply: '⚠️ Only the club lead organizer can create tasks, assign people, or make changes. You joined this club as a volunteer.\n\nYou can ask questions like "What tasks are due?" or "How many volunteers do we have?"',
-        action: { type: 'PERMISSION_DENIED' },
-        affectedRecord: null,
-      });
+      throw new AppError('Only club leads and event managers can create tasks, assign people, or make changes', 403);
     }
 
     const result = await executeChatAction({
@@ -60,3 +55,4 @@ export async function handleAiSearch(req, res, next) {
     next(error);
   }
 }
+

@@ -22,6 +22,11 @@ export const createClub = async (data) => {
   return toData(res);
 };
 
+export const updateClub = async (clubId, data) => {
+  const res = await apiRequest(`/clubs/${clubId}`, { method: 'PATCH', body: JSON.stringify(data) });
+  return toData(res);
+};
+
 export const getClubMembers = async (clubId) => {
   const res = await apiRequest(`/clubs/${clubId}/members`, { method: 'GET' });
   return toData(res);
@@ -42,4 +47,4 @@ export const createClubEvent = async (clubId, eventData) => {
   return toData(res);
 };
 
-export const clubService = { getClubs, joinClub, leaveClub, createClub, getClubMembers, getClubEvents, getClub, createClubEvent };
+export const clubService = { getClubs, joinClub, leaveClub, createClub, updateClub, getClubMembers, getClubEvents, getClub, createClubEvent };

@@ -81,13 +81,13 @@ export function AiSearchModal({ onClose }) {
   const filtered = query ? results.filter((result) => result.title?.toLowerCase().includes(query.toLowerCase())) : results
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 backdrop-blur-sm pt-24" onClick={onClose}>
-      <div className="bg-surface border border-border rounded-2xl w-[520px] max-w-[90%]" onClick={(event) => event.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 backdrop-blur-sm pt-12 sm:pt-24 px-3" onClick={onClose}>
+      <div className="bg-surface border border-border rounded-2xl w-[520px] max-w-full max-h-[calc(100vh-6rem)] overflow-y-auto" onClick={(event) => event.stopPropagation()}>
         <div className="flex items-center gap-3 p-4 border-b border-border">
           <Sparkles className="text-accent shrink-0" size={18} />
           <input ref={inputRef} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search connected ClubOps data..." className="flex-1 bg-transparent text-fg text-sm outline-none placeholder:text-muted" />
           <button onClick={onClose} className="p-1 text-muted hover:text-fg"><X size={16} /></button>
-          <kbd className="flex items-center gap-0.5 text-[10px] bg-card text-muted px-1.5 py-0.5 rounded"><Command size={10} />K</kbd>
+          <kbd className="hidden sm:flex items-center gap-0.5 text-[10px] bg-card text-muted px-1.5 py-0.5 rounded"><Command size={10} />K</kbd>
         </div>
         <div className="p-2 max-h-[460px] overflow-y-auto custom-scrollbar">
           {loading && <div className="px-3 py-6 text-center text-sm text-muted">Loading connected data...</div>}

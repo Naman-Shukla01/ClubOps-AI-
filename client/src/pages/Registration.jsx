@@ -93,7 +93,7 @@ export default function Registration({ onRegister }) {
           <input className="w-full px-4 py-3 rounded-lg text-white outline-none focus:border-indigo-500" style={{ background: "#1e1e24", border: "1px solid #2a2a32" }} placeholder="Password (min 8 characters)" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} />
           <div>
             <label className="text-sm mb-2 block" style={{ color: "#aaa" }}>I am a</label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button type="button" onClick={() => setRole("club-head")} className={`py-3 rounded-lg font-medium border transition ${role === "club-head" ? "border-indigo-500 bg-indigo-500/20 text-indigo-400" : "border-gray-700 text-gray-400 hover:border-gray-500"}`}>Club Head</button>
               <button type="button" onClick={() => setRole("volunteer")} className={`py-3 rounded-lg font-medium border transition ${role === "volunteer" ? "border-indigo-500 bg-indigo-500/20 text-indigo-400" : "border-gray-700 text-gray-400 hover:border-gray-500"}`}>Volunteer</button>
             </div>

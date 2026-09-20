@@ -20,6 +20,7 @@ import { MeetingsView } from "./views/MeetingsView";
 import { EventsView } from "./views/EventsView";
 import { AnnouncementsView } from "./views/AnnouncementsView";
 import { ClubsView } from "./views/ClubsView";
+import { clubService } from "./services/clubService";
 
 export default function App() {
 
@@ -72,6 +73,46 @@ export default function App() {
       window.removeEventListener('clubops:auth-required', handleAuthRequired);
     };
   }, []);
+
+  // Sync real backend club membership into user state
+  useEffect(() => {
+    if (!user?.id || !localStorage.getItem("accessToken")) return;
+    let mounted = true;
+
+    clubService.getClubs().then((res) => {
+      if (!mounted) return;
+      const list = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : [];
+      const memberClubsList = list
+        .filter((c) => c.isMember || (Array.isArray(c.memberIds) && c.memberIds.map(String).includes(String(user.id))))
+        .map((c) => ({ id: c.id, name: c.name, icon: c.icon || "🏛️" }));
+
+      setUser((prev) => {
+        if (!prev) return prev;
+        if (memberClubsList.length === 0) {
+          const updated = { ...prev, joinedClubs: [], activeClubId: null, activeClubName: "", activeClubIcon: "" };
+          localStorage.setItem("currentUser", JSON.stringify(updated));
+          return updated;
+        }
+          const activeClubId = prev.activeClubId && memberClubsList.some((mc) => String(mc.id) === String(prev.activeClubId))
+            ? prev.activeClubId
+            : memberClubsList[0].id;
+          const activeObj = memberClubsList.find((mc) => String(mc.id) === String(activeClubId)) || memberClubsList[0];
+          const updated = {
+            ...prev,
+            joinedClubs: memberClubsList,
+            activeClubId: activeObj.id,
+            activeClubName: activeObj.name,
+            activeClubIcon: activeObj.icon,
+          };
+          localStorage.setItem("currentUser", JSON.stringify(updated));
+          return updated;
+      });
+    }).catch(() => {});
+
+    return () => {
+      mounted = false;
+    };
+  }, [user?.id]);
 
   // -----------------------------------------
   // Logout
@@ -149,7 +190,7 @@ export default function App() {
 
       case "Meetings":
         return (
-          <MeetingsView />
+          <MeetingsView user={user} />
         );
 
       default:
@@ -160,6 +201,14 @@ export default function App() {
           />
         );
     }
+  };
+
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+  // Auto-close mobile drawer on tab select
+  const handleSelectTab = (tab) => {
+    setActiveTab(tab);
+    setMobileSidebarOpen(false);
   };
 
   return (
@@ -228,23 +277,33 @@ export default function App() {
             ) : (
 
               <div
-                className="flex h-screen"
+                className="flex h-screen min-w-0 relative overflow-hidden"
                 style={{
                   background: "#0a0a0f",
                 }}
               >
 
+                {/* Sidebar Mobile Overlay Backdrop */}
+                {mobileSidebarOpen && (
+                  <div
+                    className="fixed inset-0 bg-black/60 backdrop-blur-xs z-40 lg:hidden"
+                    onClick={() => setMobileSidebarOpen(false)}
+                  />
+                )}
+
                 {/* Sidebar */}
-                <Sidebar
-                  user={user}
-                  setUser={setUser}
-                  activeTab={activeTab}
-                  setActiveTab={setActiveTab}
-                  onLogout={handleLogout}
-                />
+                <div className={`fixed inset-y-0 left-0 z-50 transform transition-transform duration-200 lg:static lg:translate-x-0 ${mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+                  <Sidebar
+                    user={user}
+                    setUser={setUser}
+                    activeTab={activeTab}
+                    setActiveTab={handleSelectTab}
+                    onLogout={handleLogout}
+                  />
+                </div>
 
                 {/* Main area */}
-                <div className="flex-1 flex flex-col overflow-hidden">
+                <div className="flex-1 min-w-0 flex flex-col overflow-hidden w-full">
 
                   {/* Header */}
                   <Header
@@ -253,11 +312,14 @@ export default function App() {
                     onProfileClick={() =>
                       setProfileOpen(true)
                     }
+                    onToggleSidebar={() =>
+                      setMobileSidebarOpen(!mobileSidebarOpen)
+                    }
                   />
 
                   {/* Content */}
                   <main
-                    className="flex-1 overflow-auto p-6"
+                    className="flex-1 min-w-0 overflow-auto p-3 sm:p-4 lg:p-6"
                     style={{
                       color: "#e5e5e5",
                     }}

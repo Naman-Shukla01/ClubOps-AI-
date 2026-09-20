@@ -1,14 +1,24 @@
 import mongoose from 'mongoose';
 import Club from '../models/Club.js';
 import { AppError } from './errorMiddleware.js';
+import { normalizeRole } from './authMiddleware.js';
 
 /**
- * Requires the user to be the head (lead organizer) of the club
- * referenced in req.body.clubId, or to be an ADMIN/EVENT_MANAGER.
+ * Requires the user to be an ADMIN or EVENT_MANAGER (club lead),
+ * or the explicit head of the specified club.
+ * Unconditionally rejects VOLUNTEER role with 403 Forbidden.
  */
 export async function requireClubLead(req, res, next) {
   try {
-    if (['ADMIN', 'EVENT_MANAGER'].includes(req.user?.role)) {
+    const userRole = normalizeRole(req.user?.role);
+
+    // Unconditionally reject volunteers from performing lead actions like task/event creation
+    if (userRole === 'VOLUNTEER') {
+      return next(new AppError('Volunteers are not authorized to perform this action', 403));
+    }
+
+    // ADMIN and EVENT_MANAGER are authorized
+    if (['ADMIN', 'EVENT_MANAGER'].includes(userRole)) {
       return next();
     }
 

@@ -113,7 +113,7 @@ export default function Sidebar({
 
   return (
     <aside
-      className={`flex flex-col border-r transition-all ${expanded
+      className={`flex flex-col h-full max-h-screen shrink-0 border-r transition-all ${expanded
         ? "w-60"
         : "w-16"
         }`}
@@ -124,7 +124,7 @@ export default function Sidebar({
     >
 
       {/* Logo */}
-      <div className="p-4 flex items-center gap-3">
+      <div className="p-4 flex items-center gap-3 shrink-0">
 
         <img
           src={logo}
@@ -133,7 +133,7 @@ export default function Sidebar({
         />
 
         {expanded && (
-          <span className="font-bold text-white">
+          <span className="font-bold text-white truncate">
             ClubOps
           </span>
         )}
@@ -141,7 +141,7 @@ export default function Sidebar({
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-2 space-y-1 mt-4 overflow-y-auto">
+      <nav className="flex-1 min-h-0 px-2 space-y-1 mt-2 overflow-y-auto overflow-x-hidden sidebar-scrollbar">
 
         {tabList.map((tab) => {
 
@@ -207,9 +207,7 @@ export default function Sidebar({
               </button>
 
               {/* Clubs submenu */}
-              {isClubsTab &&
-                expanded &&
-                clubsOpen && (
+              {isClubsTab && expanded && clubsOpen && (
 
                   <div className="pl-6 space-y-1 my-1 border-l border-white/10 ml-4">
 
@@ -287,7 +285,7 @@ export default function Sidebar({
 
       {/* Bottom section */}
       <div
-        className="p-2 border-t"
+        className="p-2 border-t shrink-0 mt-auto"
         style={{
           borderColor: "#1e1e24",
         }}
@@ -334,11 +332,11 @@ export default function Sidebar({
 
           <div className="px-3 py-2 mt-2">
 
-            <p className="text-white text-sm font-medium">
+            <p className="text-white text-sm font-medium truncate">
               {user.name}
             </p>
 
-            <p className="text-gray-500 text-xs">
+            <p className="text-gray-500 text-xs truncate">
               {user.role === "club-head"
                 ? "Club Head"
                 : "Volunteer"}

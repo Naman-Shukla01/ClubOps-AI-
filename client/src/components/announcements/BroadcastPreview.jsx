@@ -84,7 +84,7 @@ export function BroadcastPreview({ announcement, onClose }) {
       onClick={onClose}
     >
       <div
-        className="bg-surface border border-border rounded-2xl w-[500px] max-w-[90%]"
+        className="bg-surface border border-border rounded-2xl w-[500px] max-w-[calc(100%-1.5rem)] max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

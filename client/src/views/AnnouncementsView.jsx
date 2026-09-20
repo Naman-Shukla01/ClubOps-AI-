@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react'
+import { announcementService } from '../services/announcementService'
+import { canManageClubWork } from '../utils/permissions'
 
 export function AnnouncementsView({ user }) {
   const [announcements, setAnnouncements] = useState([])
@@ -25,36 +27,45 @@ export function AnnouncementsView({ user }) {
   const [loading, setLoading] = useState(false)
 
   const clubId = user?.activeClubId
-  const isClubHead = user?.role === 'club-head' || user?.role === 'lead' || user?.role === 'EVENT_MANAGER' || user?.role === 'ADMIN'
+  const isClubHead = canManageClubWork(user)
 
   useEffect(() => {
     loadAnnouncements()
   }, [clubId])
 
-  const loadAnnouncements = () => {
+  const loadAnnouncements = async () => {
     setLoading(true)
-    setAnnouncements([])
+    try {
+      const data = await announcementService.getAnnouncements(clubId)
+      setAnnouncements(Array.isArray(data) ? data : [])
+    } catch (error) {
+      console.warn('Announcement API fetch error:', error)
+      setAnnouncements([])
+    }
     setLoading(false)
   }
 
-  const handleCreate = (e) => {
+  const handleCreate = async (e) => {
     e.preventDefault()
 
-    if (!newTitle.trim() || !clubId) return
+    if (!newTitle.trim()) return
 
-    const announcement = {
-      id: String(Date.now()),
+    const payload = {
       title: newTitle.trim(),
       content: newContent.trim(),
       channels: [...newChannels],
-      status: 'draft',
-      clubId,
-      clubName: user?.activeClubName || '',
-      createdBy: user?.name || 'Admin',
-      createdAt: new Date().toISOString(),
+      status: 'sent',
+      clubId: clubId || user?.activeClubId || null,
     }
 
-    setAnnouncements((prev) => [announcement, ...prev])
+    try {
+      const created = await announcementService.createAnnouncement(payload)
+      setAnnouncements((prev) => [created, ...prev])
+      await loadAnnouncements()
+    } catch (error) {
+      console.warn('Announcement create error:', error)
+      return
+    }
 
     setNewTitle('')
     setNewContent('')
@@ -72,33 +83,26 @@ export function AnnouncementsView({ user }) {
 
   const saveEdit = () => {
     if (!editing || !editTitle.trim()) return
-
-    const updated = announcements.map((announcement) =>
-      announcement.id === editing.id
-        ? {
-          ...announcement,
-          title: editTitle.trim(),
-          content: editContent.trim(),
-          status: editStatus,
-          channels: [...editChannels],
-        }
-        : announcement
-    )
-
-    setAnnouncements(updated)
-    setEditing(null)
+    announcementService.updateAnnouncement(editing.id, {
+      title: editTitle.trim(), content: editContent.trim(), status: editStatus, channels: [...editChannels],
+    }).then((updated) => {
+      setAnnouncements((prev) => prev.map((announcement) => announcement.id === editing.id ? updated : announcement))
+      setEditing(null)
+    }).catch((error) => console.warn('Announcement update error:', error))
   }
 
-  const deleteAnn = (id) => {
-    setAnnouncements((prev) => prev.filter((announcement) => announcement.id !== id))
+  const deleteAnn = async (id) => {
+    try {
+      await announcementService.deleteAnnouncement(id)
+      setAnnouncements((prev) => prev.filter((announcement) => announcement.id !== id))
+    } catch (error) { console.warn('Announcement delete error:', error) }
   }
 
-  const changeStatus = (id, status) => {
-    setAnnouncements((prev) =>
-      prev.map((announcement) =>
-        announcement.id === id ? { ...announcement, status } : announcement
-      )
-    )
+  const changeStatus = async (id, status) => {
+    try {
+      const updated = await announcementService.updateAnnouncement(id, { status })
+      setAnnouncements((prev) => prev.map((announcement) => announcement.id === id ? updated : announcement))
+    } catch (error) { console.warn('Announcement status update error:', error) }
   }
 
   const openPreview = (ann) => {
@@ -117,7 +121,7 @@ export function AnnouncementsView({ user }) {
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
         <div>
           <h2 className="text-2xl font-bold text-fg">
             {clubId ? 'Club Announcements' : 'Announcements'}
@@ -289,8 +293,8 @@ export function AnnouncementsView({ user }) {
                     {ann.content || 'No content'}
                   </p>
 
-                  <div className="flex items-center justify-between">
-                    <div className="flex gap-2">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex flex-wrap gap-2">
                       {(ann.channels || []).map((channel) => (
                         <span
                           key={channel}
@@ -301,7 +305,7 @@ export function AnnouncementsView({ user }) {
                       ))}
                     </div>
 
-                    <div className="flex gap-2 items-center">
+                    <div className="flex flex-wrap gap-2 items-center">
                       <span
                         className={`px-2 py-0.5 text-[10px] rounded-full ${statusStyles[ann.status] ||
                           'bg-muted/15 text-muted'
@@ -367,7 +371,7 @@ export function AnnouncementsView({ user }) {
           onClick={() => setShowCreate(false)}
         >
           <div
-            className="bg-surface border border-border rounded-2xl w-[500px] max-w-[90%]"
+            className="bg-surface border border-border rounded-2xl w-[500px] max-w-[calc(100%-1.5rem)] max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between p-5 border-b border-border">
@@ -476,7 +480,7 @@ export function AnnouncementsView({ user }) {
           onClick={() => setPreviewOpen(false)}
         >
           <div
-            className="bg-surface border border-border rounded-2xl w-[500px] max-w-[90%]"
+            className="bg-surface border border-border rounded-2xl w-[500px] max-w-[calc(100%-1.5rem)] max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between p-5 border-b border-border">

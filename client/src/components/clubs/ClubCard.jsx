@@ -1,4 +1,4 @@
-export function ClubCard({ club, isMember, isHead, onJoin, onLeave, onManage, loading }) {
+export function ClubCard({ club, isMember, isHead, onJoin, onLeave, onManage, onSetActive, loading }) {
   const maxMembers = club.maxMembers || 50
   const members = club.members || 0
   const isFull = members >= maxMembers
@@ -14,7 +14,7 @@ export function ClubCard({ club, isMember, isHead, onJoin, onLeave, onManage, lo
             <p className="text-[11px] text-muted">{members}/{maxMembers} members</p>
           </div>
         </div>
-        {isHead && <button onClick={() => onManage(club)} className="shrink-0 text-[10px] bg-accent/15 text-accent px-2 py-1 rounded-full hover:bg-accent/25 transition-colors">Manage</button>}
+        {isHead && <button onClick={(e) => { e.stopPropagation(); onManage?.(club); }} className="shrink-0 text-[10px] bg-accent/15 text-accent px-2 py-1 rounded-full hover:bg-accent/25 transition-colors">Manage</button>}
       </div>
       <p className="text-xs text-fg/70 mb-3 leading-relaxed">{club.description || 'No description'}</p>
       {club.skills?.length > 0 && (
@@ -32,11 +32,11 @@ export function ClubCard({ club, isMember, isHead, onJoin, onLeave, onManage, lo
       <div className="flex gap-2">
         {isMember ? (
           <>
-            <button onClick={() => onLeave?.(club.id)} disabled={loading} className="px-3 py-1.5 bg-red/10 text-red text-xs font-semibold rounded-lg hover:bg-red/20 disabled:opacity-50">Leave</button>
-            <button onClick={() => onJoin?.(club)} disabled={loading} className="flex-1 px-3 py-1.5 bg-accent/20 text-accent text-xs font-semibold rounded-lg hover:bg-accent/30 transition-colors">Set Active</button>
+            <button onClick={(e) => { e.stopPropagation(); onLeave?.(club.id); }} disabled={loading} className="px-3 py-1.5 bg-red/10 text-red text-xs font-semibold rounded-lg hover:bg-red/20 disabled:opacity-50">Leave</button>
+            <button onClick={(e) => { e.stopPropagation(); onSetActive?.(club); }} disabled={loading} className="flex-1 px-3 py-1.5 bg-accent/20 text-accent text-xs font-semibold rounded-lg hover:bg-accent/30 transition-colors">Set Active</button>
           </>
         ) : (
-          <button onClick={() => onJoin?.(club)} disabled={loading || isFull} className="flex-1 px-3 py-1.5 bg-accent hover:bg-accentHover text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-50">
+          <button onClick={(e) => { e.stopPropagation(); onJoin?.(club); }} disabled={loading || isFull} className="flex-1 px-3 py-1.5 bg-accent hover:bg-accentHover text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-50">
             {isFull ? 'Full' : 'Join Club'}
           </button>
         )}

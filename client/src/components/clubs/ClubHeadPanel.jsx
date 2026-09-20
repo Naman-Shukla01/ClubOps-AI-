@@ -36,7 +36,7 @@ export function ClubHeadPanel({ club, onClose, user }) {
   }
 
   return (
-    <div className="bg-surface border border-accent/30 rounded-2xl w-[500px] max-w-[90%] shadow-glow" onClick={(e) => e.stopPropagation()}>
+    <div className="bg-surface border border-accent/30 rounded-2xl w-[500px] max-w-[calc(100%-1.5rem)] max-h-[90vh] overflow-y-auto shadow-glow" onClick={(e) => e.stopPropagation()}>
       <div className="p-5 border-b border-border flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-2xl">{club.icon}</span>
@@ -48,7 +48,7 @@ export function ClubHeadPanel({ club, onClose, user }) {
         <button onClick={onClose} className="p-1.5 hover:bg-card rounded-lg"><X size={16} className="text-muted" /></button>
       </div>
       <div className="p-5">
-        <div className="grid grid-cols-3 gap-3 mb-5">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
           <button onClick={() => setActiveTab('members')} className={`bg-card border rounded-xl p-3 text-left transition-all ${activeTab === 'members' ? 'border-accent' : 'border-border hover:border-accent/30'}`}>
             <Users size={16} className="text-accent mb-1" />
             <p className="font-bold text-fg">{members.length || club.members}</p>

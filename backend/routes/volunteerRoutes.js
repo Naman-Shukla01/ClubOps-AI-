@@ -5,6 +5,7 @@ import Task from '../models/Task.js';
 import { AppError } from '../middleware/errorMiddleware.js';
 import { ROLES } from '../middleware/authMiddleware.js';
 import { requireRole } from '../middleware/roleMiddleware.js';
+import Club from '../models/Club.js';
 
 const router = express.Router();
 
@@ -37,7 +38,21 @@ async function uniqueEmail(name) {
 
 router.get('/', async (req, res, next) => {
   try {
-    const volunteers = await User.find({ role: 'volunteer' }).sort({ name: 1 });
+    const { clubId, q } = req.query;
+    let query = { role: { $in: ['VOLUNTEER', 'volunteer'] } };
+
+    if (clubId && mongoose.isValidObjectId(clubId)) {
+      const club = await Club.findById(clubId).select('members');
+      if (!club) throw new AppError('Club not found', 404);
+      query._id = { $in: club.members || [] };
+    }
+
+    if (q && typeof q === 'string' && q.trim()) {
+      const pattern = new RegExp(q.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      query = { ...query, $or: [{ name: pattern }, { email: pattern }] };
+    }
+
+    const volunteers = await User.find(query).sort({ name: 1 });
     res.status(200).json({ success: true, data: volunteers.map(normalizeVolunteer) });
   } catch (error) {
     next(error);

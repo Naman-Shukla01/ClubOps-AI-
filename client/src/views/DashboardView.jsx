@@ -3,6 +3,7 @@ import ActionCopilotBar from '../components/actions/ActionCopilotBar'
 import { clubService } from '../services/clubService'
 import { dev1Service } from '../services/dev1Service'
 import { dev2Service } from '../services/dev2Service'
+import { canManageClubWork } from '../utils/permissions'
 
 export function DashboardView({ user, setActiveTab }) {
   const [stats, setStats] = useState({
@@ -13,7 +14,7 @@ export function DashboardView({ user, setActiveTab }) {
 
   const [activeClub, setActiveClub] = useState(null)
 
-  const isClubHead = user?.role === 'club-head' || user?.role === 'lead' || user?.role === 'EVENT_MANAGER'
+  const isClubHead = canManageClubWork(user)
 
   useEffect(() => {
     const loadClub = async () => {
@@ -95,7 +96,7 @@ export function DashboardView({ user, setActiveTab }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-2xl font-bold text-fg">
             {activeClub?.icon || '🏠'} {activeClub?.name || 'Dashboard'}
@@ -106,59 +107,59 @@ export function DashboardView({ user, setActiveTab }) {
           </p>
         </div>
 
-        <div className="flex gap-2">
+        <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
           <button
             onClick={() => goTo('Tasks')}
-            className="px-4 py-2 bg-accent hover:bg-accentHover text-white rounded-xl text-sm"
+            className="w-full sm:w-auto px-3 sm:px-4 py-2 bg-accent hover:bg-accentHover text-white rounded-xl text-xs sm:text-sm font-medium text-center"
           >
             Tasks
           </button>
 
           <button
             onClick={() => goTo('Announcements')}
-            className="px-4 py-2 bg-card border border-border text-fg hover:border-accent/40 rounded-xl text-sm"
+            className="w-full sm:w-auto px-3 sm:px-4 py-2 bg-card border border-border text-fg hover:border-accent/40 rounded-xl text-xs sm:text-sm font-medium text-center truncate"
           >
-            Announcements
+            Announce
           </button>
 
           <button
             onClick={() => goTo('Events')}
-            className="px-4 py-2 bg-card border border-border text-fg hover:border-accent/40 rounded-xl text-sm"
+            className="w-full sm:w-auto px-3 sm:px-4 py-2 bg-card border border-border text-fg hover:border-accent/40 rounded-xl text-xs sm:text-sm font-medium text-center"
           >
             Events
           </button>
         </div>
       </div>
 
-      <ActionCopilotBar />
+      <ActionCopilotBar user={user} />
 
-      <div className="grid grid-cols-3 gap-4">
-        <div className="bg-card border border-border rounded-2xl p-5">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+        <div className="bg-card border border-border rounded-2xl p-4 sm:p-5">
           <p className="text-xs text-muted mb-1">
             Volunteers
           </p>
 
-          <span className="text-3xl font-bold text-fg">
+          <span className="text-2xl sm:text-3xl font-bold text-fg">
             {stats.volunteers || activeClub?.members || 0}
           </span>
         </div>
 
-        <div className="bg-card border border-border rounded-2xl p-5">
+        <div className="bg-card border border-border rounded-2xl p-4 sm:p-5">
           <p className="text-xs text-muted mb-1">
             Tasks
           </p>
 
-          <span className="text-3xl font-bold text-fg">
+          <span className="text-2xl sm:text-3xl font-bold text-fg">
             {stats.tasks}
           </span>
         </div>
 
-        <div className="bg-card border border-border rounded-2xl p-5">
+        <div className="col-span-2 lg:col-span-1 bg-card border border-border rounded-2xl p-4 sm:p-5">
           <p className="text-xs text-muted mb-1">
             Events
           </p>
 
-          <span className="text-3xl font-bold text-fg">
+          <span className="text-2xl sm:text-3xl font-bold text-fg">
             {stats.events}
           </span>
         </div>
@@ -169,7 +170,7 @@ export function DashboardView({ user, setActiveTab }) {
           Quick Actions
         </h3>
 
-        <div className="flex gap-3">
+        <div className="flex flex-col sm:flex-row gap-3">
           {isClubHead ? (
             <>
               <button

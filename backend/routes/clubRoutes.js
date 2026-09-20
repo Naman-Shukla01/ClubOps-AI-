@@ -2,6 +2,7 @@ import express from 'express';
 import { 
   getClubs, 
   createClub, 
+  updateClub,
   getClubById, 
   joinClub, 
   leaveClub,
@@ -15,6 +16,7 @@ const router = express.Router();
 router.get('/', getClubs);
 router.post('/', createClub);
 router.get('/:id', getClubById);
+router.patch('/:id', updateClub);
 router.post('/:id/join', joinClub);
 router.post('/:id/leave', leaveClub);
 

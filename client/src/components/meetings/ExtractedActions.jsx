@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react'
 import { Check, Plus, RefreshCw } from 'lucide-react'
 import { dev1Service } from '../../services/dev1Service'
+import { canManageClubWork } from '../../utils/permissions'
 
 const DEFAULT_ACTIONS = []
 
-export function ExtractedActions({ actions: providedActions = DEFAULT_ACTIONS }) {
+export function ExtractedActions({ actions: providedActions = DEFAULT_ACTIONS, user }) {
   const [actions, setActions] = useState(providedActions || DEFAULT_ACTIONS)
   const [loading, setLoading] = useState(false)
   const [syncedIds, setSyncedIds] = useState(new Set())
+  const canCreateTasks = canManageClubWork(user)
 
   useEffect(() => {
     if (providedActions && Array.isArray(providedActions)) {
@@ -17,6 +19,7 @@ export function ExtractedActions({ actions: providedActions = DEFAULT_ACTIONS })
   }, [providedActions?.length, JSON.stringify(providedActions)])
 
   const handleSync = async () => {
+    if (!canCreateTasks) return
     setLoading(true)
     for (const action of actions) {
       if (!syncedIds.has(action.id)) {
@@ -34,7 +37,7 @@ export function ExtractedActions({ actions: providedActions = DEFAULT_ACTIONS })
           <h4 className="text-sm font-semibold text-fg">Extracted Actions</h4>
           <p className="text-[11px] text-muted">{actions.length} items parsed</p>
         </div>
-        <button onClick={handleSync} disabled={loading || actions.length === 0 || syncedIds.size === actions.length}
+        {canCreateTasks && <button onClick={handleSync} disabled={loading || actions.length === 0 || syncedIds.size === actions.length}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
             loading ? 'bg-accent/20 text-accent cursor-wait' :
             syncedIds.size === actions.length && actions.length > 0 ? 'bg-green/15 text-green cursor-default' :
@@ -42,7 +45,7 @@ export function ExtractedActions({ actions: providedActions = DEFAULT_ACTIONS })
           }`}>
           {loading ? <RefreshCw size={13} className="animate-spin" /> : syncedIds.size === actions.length && actions.length > 0 ? <Check size={13} /> : <Plus size={13} />}
           {loading ? 'Syncing...' : syncedIds.size === actions.length && actions.length > 0 ? 'All Synced' : 'Sync to Tasks'}
-        </button>
+        </button>}
       </div>
       <div className="divide-y divide-border">
         {actions.length === 0 ? (

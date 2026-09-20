@@ -52,8 +52,11 @@ export const deleteTask = async (id) => {
   return toData(res)
 }
 
-export const getVolunteers = async () => {
-  const res = await apiRequest('/volunteers', { method: 'GET' })
+export const getVolunteers = async (clubId, query) => {
+  const params = new URLSearchParams()
+  if (clubId) params.set('clubId', clubId)
+  if (query) params.set('q', query)
+  const res = await apiRequest(`/volunteers${params.toString() ? `?${params.toString()}` : ''}`, { method: 'GET' })
   return toData(res)
 }
 

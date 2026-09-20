@@ -4,7 +4,7 @@ import { X, Mail, Briefcase, User } from 'lucide-react'
 export default function ProfileModal({ user, onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-surface border border-border rounded-2xl w-[400px] max-w-[90%]" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-surface border border-border rounded-2xl w-[400px] max-w-[calc(100%-1.5rem)] max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between p-5 border-b border-border">
           <h3 className="font-semibold text-fg">Profile</h3>
           <button onClick={onClose} className="p-1.5 hover:bg-card rounded-lg"><X size={16} className="text-muted" /></button>

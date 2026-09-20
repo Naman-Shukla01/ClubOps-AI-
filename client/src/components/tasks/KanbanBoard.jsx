@@ -12,7 +12,7 @@ export function KanbanBoard({ tasks, highlightedId, canManage = false }) {
   return (
     <div className="flex gap-5 overflow-x-auto pb-2">
       {columns.map((col) => (
-        <div key={col.id} className="min-w-[260px] flex-1">
+        <div key={col.id} className="min-w-[min(260px,85vw)] flex-1">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full" style={{ background: col.color }}></div>

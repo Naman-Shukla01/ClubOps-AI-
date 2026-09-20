@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import Task from '../models/Task.js';
 import Event from '../models/Event.js';
 import User from '../models/User.js';
+import Club from '../models/Club.js';
 import { AppError } from '../middleware/errorMiddleware.js';
 import { ROLES } from '../middleware/authMiddleware.js';
 import { requireClubLead } from '../middleware/clubPermissionMiddleware.js';
@@ -177,7 +178,20 @@ router.patch('/:id', async (req, res, next) => {
       throw new AppError('Task not found', 404);
     }
 
-    const isManager = [ROLES.ADMIN, ROLES.EVENT_MANAGER].includes(req.user.role);
+    const taskClubId = task.club || (task.event ? (await Event.findById(task.event).select('club'))?.club : null);
+    const requestedClubId = req.body?.clubId || taskClubId;
+    if (!requestedClubId || !mongoose.isValidObjectId(String(requestedClubId))) {
+      throw new AppError('Task must belong to a valid club', 400);
+    }
+    const club = await Club.findById(requestedClubId).select('head');
+    if (!club) throw new AppError('Club not found', 404);
+    const isClubManager = req.user.role === ROLES.ADMIN || String(club.head) === String(req.user.id);
+    const isTaskOwner = String(task.owner) === String(req.user.id);
+    if (!isClubManager && !isTaskOwner) {
+      throw new AppError('Only the club lead can update this task', 403);
+    }
+
+    const isManager = isClubManager;
     if (!isManager && String(task.owner) !== req.user.id) {
       throw new AppError('You may only update tasks assigned to you', 403);
     }
