@@ -25,9 +25,7 @@ const allowedOrigin = process.env.CLIENT_URL || '*';
 const allowedOrigins = allowedOrigin === '*'
   ? null
   : new Set([
-      allowedOrigin,
-      allowedOrigin.replace('localhost', '127.0.0.1'),
-      allowedOrigin.replace('127.0.0.1', 'localhost'),
+      ...allowedOrigin.split(',').map(u => u.trim()).filter(Boolean),
       'http://localhost:3000',
       'http://127.0.0.1:3000',
       'http://localhost:5173',
@@ -44,13 +42,14 @@ app.use(cors({
       !origin ||
       !allowedOrigins ||
       allowedOrigins.has(origin) ||
-      /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)
+      /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin) ||
+      /^https:\/\/.*\.vercel\.app$/.test(origin)
     ) {
       callback(null, true);
       return;
     }
 
-    callback(new Error('Origin is not allowed by CORS'));
+    callback(new Error(`Origin ${origin} is not allowed by CORS`));
   },
   credentials: true,
 }));
