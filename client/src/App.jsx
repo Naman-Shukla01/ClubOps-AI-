@@ -14,6 +14,8 @@ import { Header } from "./components/layout/Header";
 import ProfileModal from "./components/layout/ProfileModal";
 
 import { DashboardView } from "./views/DashboardView";
+import { DocumentsView } from "./views/DocumentsView";
+import { RisksView } from "./views/RisksView";
 import { DocumentsAndRisksView } from "./views/DocumentsAndRisksView";
 import { TasksView } from "./views/TasksView";
 import { VolunteersView } from "./views/VolunteersView";
@@ -156,9 +158,23 @@ export default function App() {
           />
         );
 
+      case "Documents":
+        return (
+          <DocumentsView
+            user={user}
+          />
+        );
+
+      case "Risks":
+        return (
+          <RisksView
+            user={user}
+          />
+        );
+
       case "Documents & Risks":
         return (
-          <DocumentsAndRisksView
+          <DocumentsView
             user={user}
           />
         );
