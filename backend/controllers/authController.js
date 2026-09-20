@@ -17,7 +17,7 @@ function publicUser(user) {
 
 export async function register(req, res, next) {
   try {
-    const { name, email, password } = req.body || {};
+    const { name, email, password, role } = req.body || {};
     if (!name?.trim() || !email?.trim() || typeof password !== 'string' || password.length < 8) {
       throw new AppError('name, email, and a password of at least 8 characters are required', 400);
     }
@@ -28,7 +28,7 @@ export async function register(req, res, next) {
       name: name.trim(),
       email: email.trim().toLowerCase(),
       passwordHash: await bcrypt.hash(password, 12),
-      role: ROLES.VOLUNTEER,
+      role: role ? normalizeRole(role) : ROLES.VOLUNTEER,
     });
     res.status(201).json({ success: true, token: signUserToken(user), user: publicUser(user) });
   } catch (error) {

@@ -25,7 +25,7 @@ export function AnnouncementsView({ user }) {
   const [loading, setLoading] = useState(false)
 
   const clubId = user?.activeClubId
-  const isClubHead = user?.role === 'club-head'
+  const isClubHead = user?.role === 'club-head' || user?.role === 'lead' || user?.role === 'EVENT_MANAGER' || user?.role === 'ADMIN'
 
   useEffect(() => {
     loadAnnouncements()
@@ -40,23 +40,7 @@ export function AnnouncementsView({ user }) {
       return
     }
 
-    const key = `announcements_${clubId}`
-    const stored = localStorage.getItem(key)
-
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored)
-        setAnnouncements(Array.isArray(parsed) ? parsed : [])
-      } catch {
-        localStorage.removeItem(key)
-        setAnnouncements([])
-      }
-
-      setLoading(false)
-      return
-    }
-
-    const initialData = [
+    setAnnouncements([
       {
         id: `${clubId}-announcement-1`,
         title: `Welcome to ${user?.activeClubName || 'the club'}`,
@@ -66,25 +50,11 @@ export function AnnouncementsView({ user }) {
         status: 'sent',
         clubId,
         clubName: user?.activeClubName || '',
-        createdBy: 'Club Admin',
+        createdBy: user?.name || 'Club Admin',
         createdAt: new Date().toISOString(),
       },
-    ]
-
-    setAnnouncements(initialData)
-    localStorage.setItem(key, JSON.stringify(initialData))
+    ])
     setLoading(false)
-  }
-
-  const saveAnnouncements = (updated) => {
-    setAnnouncements(updated)
-
-    if (clubId) {
-      localStorage.setItem(
-        `announcements_${clubId}`,
-        JSON.stringify(updated)
-      )
-    }
   }
 
   const handleCreate = (e) => {
@@ -93,7 +63,7 @@ export function AnnouncementsView({ user }) {
     if (!newTitle.trim() || !clubId) return
 
     const announcement = {
-      id: Date.now(),
+      id: String(Date.now()),
       title: newTitle.trim(),
       content: newContent.trim(),
       channels: [...newChannels],
@@ -104,7 +74,7 @@ export function AnnouncementsView({ user }) {
       createdAt: new Date().toISOString(),
     }
 
-    saveAnnouncements([announcement, ...announcements])
+    setAnnouncements((prev) => [announcement, ...prev])
 
     setNewTitle('')
     setNewContent('')
@@ -135,26 +105,20 @@ export function AnnouncementsView({ user }) {
         : announcement
     )
 
-    saveAnnouncements(updated)
+    setAnnouncements(updated)
     setEditing(null)
   }
 
   const deleteAnn = (id) => {
-    const updated = announcements.filter(
-      (announcement) => announcement.id !== id
-    )
-
-    saveAnnouncements(updated)
+    setAnnouncements((prev) => prev.filter((announcement) => announcement.id !== id))
   }
 
   const changeStatus = (id, status) => {
-    const updated = announcements.map((announcement) =>
-      announcement.id === id
-        ? { ...announcement, status }
-        : announcement
+    setAnnouncements((prev) =>
+      prev.map((announcement) =>
+        announcement.id === id ? { ...announcement, status } : announcement
+      )
     )
-
-    saveAnnouncements(updated)
   }
 
   const openPreview = (ann) => {

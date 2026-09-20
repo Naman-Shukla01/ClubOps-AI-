@@ -8,28 +8,52 @@ export function AiSearchModal({ onClose }) {
   const [results, setResults] = useState([])
   const [loading, setLoading] = useState(true)
   const inputRef = useRef(null)
+  const onCloseRef = useRef(onClose)
+
+  useEffect(() => {
+    onCloseRef.current = onClose
+  }, [onClose])
 
   useEffect(() => {
     inputRef.current?.focus()
-    const handler = (event) => { if (event.key === 'Escape') onClose() }
+    const handler = (event) => {
+      if (event.key === 'Escape') onCloseRef.current?.()
+    }
     window.addEventListener('keydown', handler)
+
+    let mounted = true
     Promise.all([
-      dev2Service.getDocuments(),
-      dev1Service.getTasks(),
-      dev2Service.getRisks(),
-      dev1Service.getVolunteers(),
-      dev2Service.getMeetings(),
+      dev2Service.getDocuments().catch(() => []),
+      dev1Service.getTasks().catch(() => []),
+      dev2Service.getRisks().catch(() => []),
+      dev1Service.getVolunteers().catch(() => []),
+      dev2Service.getMeetings().catch(() => []),
     ]).then(([documents, tasks, risks, volunteers, meetings]) => {
+      if (!mounted) return
+      const safeDocs = Array.isArray(documents) ? documents : Array.isArray(documents?.data) ? documents.data : []
+      const safeTasks = Array.isArray(tasks) ? tasks : Array.isArray(tasks?.data) ? tasks.data : []
+      const safeRisks = Array.isArray(risks) ? risks : Array.isArray(risks?.data) ? risks.data : []
+      const safeVols = Array.isArray(volunteers) ? volunteers : Array.isArray(volunteers?.data) ? volunteers.data : []
+      const safeMeetings = Array.isArray(meetings) ? meetings : Array.isArray(meetings?.data) ? meetings.data : []
+
       setResults([
-        ...documents.map((item) => ({ type: 'Document', title: item.title, section: 'Documents' })),
-        ...tasks.map((item) => ({ type: 'Task', title: item.title, section: 'Tasks' })),
-        ...risks.map((item) => ({ type: 'Risk', title: item.title, section: 'Risks' })),
-        ...volunteers.map((item) => ({ type: 'Volunteer', title: item.name, section: 'Volunteers' })),
-        ...meetings.map((item) => ({ type: 'Meeting', title: item.title, section: 'Meetings' })),
+        ...safeDocs.map((item) => ({ type: 'Document', title: item.title, section: 'Documents' })),
+        ...safeTasks.map((item) => ({ type: 'Task', title: item.title, section: 'Tasks' })),
+        ...safeRisks.map((item) => ({ type: 'Risk', title: item.title, section: 'Risks' })),
+        ...safeVols.map((item) => ({ type: 'Volunteer', title: item.name, section: 'Volunteers' })),
+        ...safeMeetings.map((item) => ({ type: 'Meeting', title: item.title, section: 'Meetings' })),
       ])
-    }).catch(() => setResults([])).finally(() => setLoading(false))
-    return () => window.removeEventListener('keydown', handler)
-  }, [onClose])
+    }).catch(() => {
+      if (mounted) setResults([])
+    }).finally(() => {
+      if (mounted) setLoading(false)
+    })
+
+    return () => {
+      mounted = false
+      window.removeEventListener('keydown', handler)
+    }
+  }, [])
 
   const filtered = query ? results.filter((result) => result.title?.toLowerCase().includes(query.toLowerCase())) : results
 

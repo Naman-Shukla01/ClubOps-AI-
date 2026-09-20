@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { dev1Service } from '../services/dev1Service'
 
 export function TasksView({ user }) {
   const [tasks, setTasks] = useState([])
@@ -16,7 +17,7 @@ export function TasksView({ user }) {
   const [newAssignee, setNewAssignee] = useState('')
   const [newDueDate, setNewDueDate] = useState('')
 
-  const isClubHead = user?.role === 'club-head'
+  const isClubHead = user?.role === 'club-head' || user?.role === 'lead' || user?.role === 'EVENT_MANAGER' || user?.role === 'ADMIN'
   const clubId = user?.activeClubId
 
   useEffect(() => {
@@ -25,81 +26,44 @@ export function TasksView({ user }) {
 
   const loadTasks = async () => {
     setLoading(true)
+    try {
+      const response = await dev1Service.getTasks()
+      const taskList = Array.isArray(response)
+        ? response
+        : Array.isArray(response?.data)
+          ? response.data
+          : []
 
-    if (!clubId) {
+      setTasks(taskList)
+    } catch (error) {
+      console.warn('Backend tasks fetch failed:', error)
       setTasks([])
+    } finally {
       setLoading(false)
-      return
     }
-
-    const key = `tasks_${clubId}`
-    const stored = localStorage.getItem(key)
-
-    if (stored) {
-      try {
-        setTasks(JSON.parse(stored))
-      } catch {
-        localStorage.removeItem(key)
-        setTasks([])
-      }
-
-      setLoading(false)
-      return
-    }
-
-    const initialTasks = [
-      {
-        id: `${clubId}-task-1`,
-        title: `${user?.activeClubName || 'Club'} Event Planning`,
-        status: 'todo',
-        priority: 'high',
-        assignee: user?.name || 'Unassigned',
-        dueDate: '2026-10-10',
-        clubId,
-        tags: ['club'],
-        updates: [],
-      },
-      {
-        id: `${clubId}-task-2`,
-        title: 'Prepare event requirements',
-        status: 'in-progress',
-        priority: 'medium',
-        assignee: 'Club Volunteer',
-        dueDate: '2026-10-15',
-        clubId,
-        tags: ['club'],
-        updates: [],
-      },
-    ]
-
-    setTasks(initialTasks)
-    localStorage.setItem(key, JSON.stringify(initialTasks))
-    setLoading(false)
   }
 
-  const saveTasksState = (updated) => {
-    setTasks(updated)
-    localStorage.setItem(`tasks_${clubId}`, JSON.stringify(updated))
-  }
-
-  const handleCreate = (e) => {
+  const handleCreate = async (e) => {
     e.preventDefault()
+    if (!newTitle.trim()) return
 
-    if (!newTitle.trim() || !clubId) return
-
-    const task = {
-      id: Date.now(),
+    const taskPayload = {
       title: newTitle.trim(),
       status: 'todo',
       priority: newPriority,
-      assignee: newAssignee.trim() || 'Unassigned',
-      dueDate: newDueDate,
-      clubId,
-      tags: ['club'],
-      updates: [],
+      assignee: newAssignee.trim() || user?.name || 'Unassigned',
+      dueDate: newDueDate || 'TBD',
     }
 
-    saveTasksState([task, ...tasks])
+    try {
+      const created = await dev1Service.createTask(taskPayload)
+      const newTask = created?.data || created || { ...taskPayload, id: Date.now() }
+      setTasks((prev) => [newTask, ...prev])
+    } catch (err) {
+      console.warn('Backend task creation error, fallback local insert:', err)
+      const localTask = { id: Date.now(), ...taskPayload }
+      setTasks((prev) => [localTask, ...prev])
+    }
 
     setNewTitle('')
     setNewPriority('medium')
@@ -108,36 +72,29 @@ export function TasksView({ user }) {
     setShowCreate(false)
   }
 
-  const handleStatusChange = (task, nextStatus) => {
-    // Club heads can update any task.
-    // Regular members can update only their own assigned tasks.
-    const canUpdateStatus =
-      isClubHead ||
-      (
-        task.assignee &&
-        user?.name &&
-        task.assignee.toLowerCase().trim() === user.name.toLowerCase().trim()
-      )
+  const handleStatusChange = async (task, nextStatus) => {
+    const isMyTask =
+      task.assignee &&
+      user?.name &&
+      task.assignee.toLowerCase().trim() === user.name.toLowerCase().trim()
 
+    const canUpdateStatus = isClubHead || isMyTask
     if (!canUpdateStatus) return
 
     let updateNote = ''
-
     if (nextStatus === 'completed') {
       const inputNote = prompt(
         'Add work completion note (optional):',
         'Task completed successfully!'
       )
-
       if (inputNote !== null) {
         updateNote = inputNote
       }
     }
 
-    const updated = tasks.map((t) => {
+    const updatedTasks = tasks.map((t) => {
       if (t.id === task.id) {
         const notes = [...(t.updates || [])]
-
         if (updateNote) {
           notes.push({
             text: updateNote,
@@ -145,33 +102,36 @@ export function TasksView({ user }) {
             at: new Date().toLocaleTimeString(),
           })
         }
-
         return {
           ...t,
           status: nextStatus,
           updates: notes,
         }
       }
-
       return t
     })
 
-    saveTasksState(updated)
+    setTasks(updatedTasks)
+
+    try {
+      await dev1Service.updateTask(task.id, { status: nextStatus })
+    } catch (err) {
+      console.warn('Task status update backend sync failed:', err)
+    }
   }
 
   const startEdit = (task) => {
     if (!isClubHead) return
-
     setEditing(task)
-    setEditTitle(task.title)
-    setEditStatus(task.status)
-    setEditAssignee(task.assignee)
+    setEditTitle(task.title || '')
+    setEditStatus(task.status || 'todo')
+    setEditAssignee(task.assignee || '')
   }
 
-  const saveEdit = () => {
+  const saveEdit = async () => {
     if (!editing || !editTitle.trim() || !isClubHead) return
 
-    const updated = tasks.map((t) =>
+    const updatedTasks = tasks.map((t) =>
       t.id === editing.id
         ? {
           ...t,
@@ -182,14 +142,31 @@ export function TasksView({ user }) {
         : t
     )
 
-    saveTasksState(updated)
+    setTasks(updatedTasks)
+
+    try {
+      await dev1Service.updateTask(editing.id, {
+        title: editTitle.trim(),
+        status: editStatus,
+        assignee: editAssignee.trim(),
+      })
+    } catch (err) {
+      console.warn('Backend update failed:', err)
+    }
+
     setEditing(null)
   }
 
-  const deleteTask = (taskId) => {
+  const deleteTask = async (taskId) => {
     if (!isClubHead) return
 
-    saveTasksState(tasks.filter((t) => t.id !== taskId))
+    setTasks((prev) => prev.filter((t) => t.id !== taskId))
+
+    try {
+      await dev1Service.deleteTask(taskId)
+    } catch (err) {
+      console.warn('Backend delete failed:', err)
+    }
   }
 
   const allFiltered =
@@ -215,6 +192,7 @@ export function TasksView({ user }) {
 
   const priorityColors = {
     high: 'bg-red/15 text-red',
+    critical: 'bg-red/20 text-red font-bold',
     medium: 'bg-yellow/15 text-yellow',
     low: 'bg-green/15 text-green',
   }
@@ -222,6 +200,7 @@ export function TasksView({ user }) {
   const statusColors = {
     todo: 'bg-muted/15 text-muted',
     'in-progress': 'bg-blue/15 text-blue',
+    in_progress: 'bg-blue/15 text-blue',
     completed: 'bg-green/15 text-green',
   }
 
@@ -333,7 +312,7 @@ export function TasksView({ user }) {
                         task,
                         task.status === 'todo'
                           ? 'in-progress'
-                          : task.status === 'in-progress'
+                          : task.status === 'in-progress' || task.status === 'in_progress'
                             ? 'completed'
                             : 'todo'
                       )
@@ -342,7 +321,7 @@ export function TasksView({ user }) {
                   >
                     {task.status === 'todo'
                       ? 'Start Task'
-                      : task.status === 'in-progress'
+                      : task.status === 'in-progress' || task.status === 'in_progress'
                         ? 'Mark Done'
                         : 'Reopen'}
                   </button>

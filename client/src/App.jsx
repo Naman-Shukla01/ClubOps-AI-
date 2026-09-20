@@ -63,16 +63,22 @@ export default function App() {
       }
     }
 
+    const handleAuthRequired = () => {
+      setUser(null);
+    };
+    window.addEventListener('clubops:auth-required', handleAuthRequired);
+
+    return () => {
+      window.removeEventListener('clubops:auth-required', handleAuthRequired);
+    };
   }, []);
 
   // -----------------------------------------
   // Logout
   // -----------------------------------------
   const handleLogout = () => {
-
-    localStorage.removeItem(
-      "currentUser"
-    );
+    localStorage.removeItem("currentUser");
+    localStorage.removeItem("accessToken");
 
     setUser(null);
 

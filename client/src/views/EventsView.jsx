@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react'
+import { dev2Service } from '../services/dev2Service'
 
 export function EventsView({ user }) {
   const [events, setEvents] = useState([])
+  const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
   const [newTitle, setNewTitle] = useState('')
   const [newDate, setNewDate] = useState('')
@@ -9,7 +11,7 @@ export function EventsView({ user }) {
   const [editTitle, setEditTitle] = useState('')
   const [editDate, setEditDate] = useState('')
 
-  const isClubHead = user?.role === 'club-head'
+  const isClubHead = user?.role === 'club-head' || user?.role === 'lead' || user?.role === 'EVENT_MANAGER' || user?.role === 'ADMIN'
   const clubId = user?.activeClubId
 
   useEffect(() => {
@@ -17,69 +19,69 @@ export function EventsView({ user }) {
   }, [clubId])
 
   const loadEvents = async () => {
-    if (!clubId) {
+    setLoading(true)
+    try {
+      const response = await dev2Service.getEvents()
+      const list = Array.isArray(response)
+        ? response
+        : Array.isArray(response?.data)
+          ? response.data
+          : []
+
+      const normalized = list.map((ev) => ({
+        id: ev.id || ev._id,
+        title: ev.name || ev.title || 'Untitled Event',
+        date: ev.startDate || ev.date || new Date().toISOString(),
+        type: ev.status || 'upcoming',
+        clubId: clubId || '1',
+      }))
+
+      setEvents(normalized)
+    } catch (error) {
+      console.warn('Events fetch API failed:', error)
       setEvents([])
-      return
+    } finally {
+      setLoading(false)
     }
-
-    const key = `events_${clubId}`
-    const stored = localStorage.getItem(key)
-
-    if (stored) {
-      try {
-        setEvents(JSON.parse(stored))
-      } catch {
-        setEvents([])
-      }
-      return
-    }
-
-    const clubEvents = [
-      {
-        id: `${clubId}-event-1`,
-        title: `${user?.activeClubName || 'Club'} Orientation`,
-        date: '2026-10-05',
-        type: 'upcoming',
-        clubId,
-      },
-      {
-        id: `${clubId}-event-2`,
-        title: `${user?.activeClubName || 'Club'} Planning Meeting`,
-        date: '2026-10-12',
-        type: 'upcoming',
-        clubId,
-      },
-    ]
-
-    setEvents(clubEvents)
-    localStorage.setItem(key, JSON.stringify(clubEvents))
   }
 
-  const saveEventsState = (updated) => {
-    setEvents(updated)
-    localStorage.setItem(
-      `events_${clubId || 'global'}`,
-      JSON.stringify(updated)
-    )
-  }
-
-  const handleCreate = (e) => {
+  const handleCreate = async (e) => {
     e.preventDefault()
+    if (!newTitle.trim()) return
 
-    if (!newTitle.trim() || !clubId) return
+    const startDate = newDate ? new Date(newDate).toISOString() : new Date().toISOString()
+    const endDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
 
-    const updated = [
-      {
-        id: Date.now().toString(),
-        title: newTitle.trim(),
-        date: newDate || new Date().toISOString().split('T')[0],
+    const eventPayload = {
+      name: newTitle.trim(),
+      title: newTitle.trim(),
+      startDate,
+      endDate,
+      status: 'upcoming',
+    }
+
+    try {
+      const created = await dev2Service.createEvent(eventPayload)
+      const newEv = {
+        id: created?.id || created?.data?.id || String(Date.now()),
+        title: created?.name || created?.title || newTitle.trim(),
+        date: startDate,
         type: 'upcoming',
-        clubId,
-      },
-      ...events,
-    ]
+        clubId: clubId || '1',
+      }
 
-    saveEventsState(updated)
+      setEvents((prev) => [newEv, ...prev])
+    } catch (err) {
+      console.warn('Create event backend failed, fallback local update:', err)
+      const localEv = {
+        id: String(Date.now()),
+        title: newTitle.trim(),
+        date: startDate,
+        type: 'upcoming',
+        clubId: clubId || '1',
+      }
+      setEvents((prev) => [localEv, ...prev])
+    }
 
     setNewTitle('')
     setNewDate('')
@@ -89,7 +91,7 @@ export function EventsView({ user }) {
   const startEdit = (ev) => {
     setEditing(ev)
     setEditTitle(ev.title)
-    setEditDate(ev.date)
+    setEditDate(ev.date ? new Date(ev.date).toISOString().split('T')[0] : '')
   }
 
   const saveEdit = () => {
@@ -100,18 +102,17 @@ export function EventsView({ user }) {
         ? {
           ...e,
           title: editTitle.trim(),
-          date: editDate,
+          date: editDate || e.date,
         }
         : e
     )
 
-    saveEventsState(updated)
+    setEvents(updated)
     setEditing(null)
   }
 
   const deleteEvent = (id) => {
-    const updated = events.filter((e) => e.id !== id)
-    saveEventsState(updated)
+    setEvents((prev) => prev.filter((e) => e.id !== id))
   }
 
   return (
@@ -139,7 +140,16 @@ export function EventsView({ user }) {
         )}
       </div>
 
-      {events.length === 0 ? (
+      {loading ? (
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className="bg-card border border-border rounded-xl p-5 h-20 animate-pulse"
+            />
+          ))}
+        </div>
+      ) : events.length === 0 ? (
         <div className="text-center py-12">
           <span className="text-4xl">📅</span>
           <p className="text-muted mt-2">No events yet</p>

@@ -88,6 +88,8 @@ export async function apiRequest(endpoint, options = {}) {
       error.status = response.status
       error.data = data
       if (response.status === 401) {
+        localStorage.removeItem('accessToken')
+        localStorage.removeItem('currentUser')
         window.dispatchEvent(new CustomEvent('clubops:auth-required', { detail: { message: errorMessage } }))
       } else if (response.status === 403) {
         window.dispatchEvent(new CustomEvent('clubops:forbidden', { detail: { message: errorMessage } }))

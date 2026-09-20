@@ -6,141 +6,51 @@ import { dev1Service } from "../services/dev1Service";
 export function VolunteersView({ user }) {
   const [volunteers, setVolunteers] = useState([]);
   const [showModal, setShowModal] = useState(false);
-  const [editingVolunteer, setEditingVolunteer] =
-    useState(null);
+  const [editingVolunteer, setEditingVolunteer] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const clubId =
-    user?.activeClubId || "default";
-
-  const isClubHead =
-    user?.role === "club-head";
+  const clubId = user?.activeClubId || "default";
+  const isClubHead = user?.role === "club-head" || user?.role === "lead" || user?.role === "EVENT_MANAGER" || user?.role === "ADMIN";
 
   useEffect(() => {
     loadVolunteers();
   }, [clubId]);
 
-  // -----------------------------------------
-  // Load Volunteers
-  // -----------------------------------------
   const loadVolunteers = async () => {
     setLoading(true);
 
-    const storageKey =
-      `volunteers_${clubId}`;
-
-    // 1. LocalStorage
     try {
-      const stored =
-        localStorage.getItem(storageKey);
-
-      if (stored) {
-        const parsed =
-          JSON.parse(stored);
-
-        if (Array.isArray(parsed)) {
-          setVolunteers(parsed);
-          setLoading(false);
-          return;
-        }
-      }
-    } catch (error) {
-      console.error(
-        "Error reading volunteers:",
-        error
-      );
-
-      localStorage.removeItem(storageKey);
-    }
-
-    // 2. Backend
-    let data = [];
-
-    try {
-      if (
-        dev1Service &&
-        typeof dev1Service.getVolunteers ===
-        "function"
-      ) {
-        const response =
-          await dev1Service.getVolunteers();
-
-        data = Array.isArray(response)
+      if (dev1Service && typeof dev1Service.getVolunteers === "function") {
+        const response = await dev1Service.getVolunteers();
+        const data = Array.isArray(response)
           ? response
           : Array.isArray(response?.data)
             ? response.data
             : [];
 
-        data = data.filter(
-          (volunteer) =>
-            !volunteer.clubId ||
-            String(volunteer.clubId) ===
-            String(clubId)
-        );
+        setVolunteers(data);
+      } else {
+        setVolunteers([]);
       }
     } catch (error) {
-      console.warn(
-        "Volunteer API unavailable:",
-        error
-      );
-
-      data = [];
+      console.warn("Volunteer API error:", error);
+      setVolunteers([]);
+    } finally {
+      setLoading(false);
     }
-
-    // 3. Demo fallback
-    if (data.length === 0) {
-      data = [
-        {
-          id: `${clubId}-vol-1`,
-          name: "Club Volunteer",
-          role: "Volunteer",
-          team: "General",
-          status: "active",
-          clubId: clubId,
-        },
-      ];
-    }
-
-    setVolunteers(data);
-
-    try {
-      localStorage.setItem(
-        storageKey,
-        JSON.stringify(data)
-      );
-    } catch (error) {
-      console.error(
-        "Could not save volunteers:",
-        error
-      );
-    }
-
-    setLoading(false);
   };
 
-  // -----------------------------------------
-  // Open Add Modal
-  // -----------------------------------------
   const handleOpenAdd = () => {
     setEditingVolunteer(null);
     setShowModal(true);
   };
 
-  // -----------------------------------------
-  // Open Edit Modal
-  // -----------------------------------------
   const handleEdit = (volunteer) => {
     setEditingVolunteer(volunteer);
     setShowModal(true);
   };
 
-  // -----------------------------------------
-  // Add / Update Volunteer
-  // -----------------------------------------
   const handleSave = async (form) => {
-    let updatedVolunteers;
-
-    // EDIT
     if (editingVolunteer) {
       const updatedVolunteer = {
         ...editingVolunteer,
@@ -148,151 +58,66 @@ export function VolunteersView({ user }) {
         clubId: clubId,
       };
 
-      updatedVolunteers =
-        volunteers.map((volunteer) =>
-          String(volunteer.id) ===
-            String(editingVolunteer.id)
-            ? updatedVolunteer
-            : volunteer
-        );
+      setVolunteers((prev) =>
+        prev.map((v) => (String(v.id) === String(editingVolunteer.id) ? updatedVolunteer : v))
+      );
 
-      // Try backend update
       try {
-        if (
-          dev1Service &&
-          typeof dev1Service.updateVolunteer ===
-          "function"
-        ) {
-          await dev1Service.updateVolunteer(
-            editingVolunteer.id,
-            updatedVolunteer
-          );
+        if (dev1Service && typeof dev1Service.updateVolunteer === "function") {
+          await dev1Service.updateVolunteer(editingVolunteer.id, updatedVolunteer);
         }
       } catch (error) {
-        console.warn(
-          "Volunteer updated locally, but backend update failed:",
-          error
-        );
+        console.warn("Volunteer backend update failed:", error);
       }
-    }
-
-    // ADD
-    else {
-      const newVolunteer = {
-        ...form,
-        id: Date.now(),
-        status: "active",
-        clubId: clubId,
+    } else {
+      const newVolunteerPayload = {
+        name: form.name?.trim() || "New Volunteer",
+        email: form.email?.trim() || `${Date.now()}@clubops.ai`,
+        skills: typeof form.skills === 'string' ? form.skills.split(',').map((s) => s.trim()).filter(Boolean) : (form.skills || []),
+        capacity: Number(form.capacity) || 50,
+        status: form.status || "active",
       };
 
-      updatedVolunteers = [
-        ...volunteers,
-        newVolunteer,
-      ];
-
-      // Try backend create
       try {
-        if (
-          dev1Service &&
-          typeof dev1Service.createVolunteer ===
-          "function"
-        ) {
-          await dev1Service.createVolunteer(
-            newVolunteer
-          );
-        }
+        const res = await dev1Service.createVolunteer(newVolunteerPayload);
+        const created = res?.data || res || { ...newVolunteerPayload, id: Date.now() };
+        setVolunteers((prev) => [...prev, created]);
       } catch (error) {
-        console.warn(
-          "Volunteer saved locally, but backend save failed:",
-          error
-        );
+        console.warn("Volunteer backend create failed:", error);
+        setVolunteers((prev) => [...prev, { ...newVolunteerPayload, id: Date.now() }]);
       }
-    }
-
-    // Update UI
-    setVolunteers(updatedVolunteers);
-
-    // Save locally
-    try {
-      localStorage.setItem(
-        `volunteers_${clubId}`,
-        JSON.stringify(updatedVolunteers)
-      );
-    } catch (error) {
-      console.error(
-        "Could not save volunteers:",
-        error
-      );
     }
 
     setShowModal(false);
     setEditingVolunteer(null);
   };
 
-  // -----------------------------------------
-  // Delete Volunteer
-  // -----------------------------------------
   const handleDelete = async (volunteer) => {
     const confirmed = window.confirm(
       `Are you sure you want to delete ${volunteer.name || "this volunteer"}?`
     );
 
-    if (!confirmed) {
-      return;
-    }
+    if (!confirmed) return;
 
-    const updatedVolunteers =
-      volunteers.filter(
-        (item) =>
-          String(item.id) !==
-          String(volunteer.id)
-      );
+    setVolunteers((prev) => prev.filter((item) => String(item.id) !== String(volunteer.id)));
 
-    setVolunteers(updatedVolunteers);
-
-    // Save locally
     try {
-      localStorage.setItem(
-        `volunteers_${clubId}`,
-        JSON.stringify(updatedVolunteers)
-      );
-    } catch (error) {
-      console.error(
-        "Could not update localStorage:",
-        error
-      );
-    }
-
-    // Try backend delete
-    try {
-      if (
-        dev1Service &&
-        typeof dev1Service.deleteVolunteer ===
-        "function"
-      ) {
-        await dev1Service.deleteVolunteer(
-          volunteer.id
-        );
+      if (dev1Service && typeof dev1Service.deleteVolunteer === "function") {
+        await dev1Service.deleteVolunteer(volunteer.id);
       }
     } catch (error) {
-      console.warn(
-        "Volunteer deleted locally, but backend delete failed:",
-        error
-      );
+      console.warn("Backend volunteer delete failed:", error);
     }
   };
 
   return (
     <div className="w-full">
-
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-
         <div>
           <h2 className="text-2xl font-bold text-white">
             Volunteers
           </h2>
-
           <p className="text-sm text-gray-400 mt-1">
             Manage volunteers for the active club
           </p>
@@ -306,7 +131,6 @@ export function VolunteersView({ user }) {
             + Add Volunteer
           </button>
         )}
-
       </div>
 
       {/* Loading */}
@@ -319,52 +143,41 @@ export function VolunteersView({ user }) {
       )}
 
       {/* Volunteer Cards */}
-      {!loading &&
-        volunteers.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-
-            {volunteers.map(
-              (volunteer, index) => (
-                <VolunteerCard
-                  key={
-                    volunteer?.id ||
-                    `volunteer-${index}`
-                  }
-                  volunteer={volunteer}
-                  canManage={isClubHead}
-                  onEdit={handleEdit}
-                  onDelete={handleDelete}
-                />
-              )
-            )}
-
-          </div>
-        )}
+      {!loading && volunteers.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {volunteers.map((volunteer, index) => (
+            <VolunteerCard
+              key={volunteer?.id || `volunteer-${index}`}
+              volunteer={volunteer}
+              canManage={isClubHead}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Empty State */}
-      {!loading &&
-        volunteers.length === 0 && (
-          <div className="text-center py-12">
-
-            <div className="text-5xl mb-3">
-              👥
-            </div>
-
-            <p className="text-gray-400">
-              No volunteers yet
-            </p>
-
-            {isClubHead && (
-              <button
-                onClick={handleOpenAdd}
-                className="mt-4 bg-accent hover:bg-accentHover text-white px-4 py-2 rounded-xl text-sm font-semibold"
-              >
-                + Add Volunteer
-              </button>
-            )}
-
+      {!loading && volunteers.length === 0 && (
+        <div className="text-center py-12">
+          <div className="text-5xl mb-3">
+            👥
           </div>
-        )}
+
+          <p className="text-gray-400">
+            No volunteers yet
+          </p>
+
+          {isClubHead && (
+            <button
+              onClick={handleOpenAdd}
+              className="mt-4 bg-accent hover:bg-accentHover text-white px-4 py-2 rounded-xl text-sm font-semibold"
+            >
+              + Add Volunteer
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Add / Edit Modal */}
       {showModal && (
@@ -377,7 +190,6 @@ export function VolunteersView({ user }) {
           onAdd={handleSave}
         />
       )}
-
     </div>
   );
 }

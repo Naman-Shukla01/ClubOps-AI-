@@ -12,6 +12,8 @@ const LEGACY_ROLE_MAP = {
   admin: ROLES.ADMIN,
   lead: ROLES.EVENT_MANAGER,
   'event lead': ROLES.EVENT_MANAGER,
+  'club-head': ROLES.EVENT_MANAGER,
+  'club head': ROLES.EVENT_MANAGER,
   event_manager: ROLES.EVENT_MANAGER,
   manager: ROLES.EVENT_MANAGER,
   volunteer: ROLES.VOLUNTEER,

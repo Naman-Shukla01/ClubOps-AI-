@@ -1,93 +1,85 @@
-const BASE = "http://localhost:5000/api";
+import { dev1Service } from './dev1Service.js'
+import { dev2Service } from './dev2Service.js'
 
-const mockClubsData = [
-  { id: "1", name: "Tech Innovators Club", icon: "💻", color: "#7c5cfc", head: { name: "Arjun Mehta", email: "arjun@org.com" }, members: 24, maxMembers: 50, events: 5, description: "Exploring latest technologies and building innovative projects.", skills: ["Programming", "AI/ML", "Web Dev", "Cloud"] },
-  { id: "2", name: "Cultural Vibes", icon: "🎭", color: "#f24e1e", head: { name: "Sarah Chen", email: "sarah@org.com" }, members: 35, maxMembers: 60, events: 8, description: "Celebrating diversity through cultural events.", skills: ["Music", "Dance", "Theater", "Art"] },
-  { id: "3", name: "Sports Arena", icon: "⚽", color: "#0ACF83", head: { name: "Mike Ross", email: "mike@org.com" }, members: 42, maxMembers: 80, events: 12, description: "Promoting fitness and sportsmanship.", skills: ["Cricket", "Football", "Basketball"] },
-  { id: "4", name: "Debate Council", icon: "🎤", color: "#1ABCFE", head: { name: "Kim Lee", email: "kim@org.com" }, members: 18, maxMembers: 40, events: 4, description: "Sharpening public speaking skills.", skills: ["Debate", "Speaking", "MUN"] },
-  { id: "5", name: "Social Impact", icon: "🌍", color: "#fbbf24", head: { name: "Alex Kim", email: "alex@org.com" }, members: 28, maxMembers: 50, events: 6, description: "Making a difference through social causes.", skills: ["Volunteering", "Social Work"] },
+const baseClubs = [
+  { id: "1", name: "Tech Innovators Club", icon: "💻", color: "#7c5cfc", head: { name: "Arjun Mehta", email: "lead@clubops.ai" }, members: 24, maxMembers: 50, events: 5, description: "Exploring latest technologies and building innovative projects.", skills: ["Programming", "AI/ML", "Web Dev", "Cloud"] },
+  { id: "2", name: "Cultural Vibes", icon: "🎭", color: "#f24e1e", head: { name: "Sarah Chen", email: "sarah@clubops.ai" }, members: 35, maxMembers: 60, events: 8, description: "Celebrating diversity through cultural events.", skills: ["Music", "Dance", "Theater", "Art"] },
+  { id: "3", name: "Sports Arena", icon: "⚽", color: "#0ACF83", head: { name: "Mike Ross", email: "mike@clubops.ai" }, members: 42, maxMembers: 80, events: 12, description: "Promoting fitness and sportsmanship.", skills: ["Cricket", "Football", "Basketball"] },
 ];
 
 export async function getClubs() {
-  try {
-    const res = await fetch(`${BASE}/clubs`);
-    if (res.ok) return await res.json();
-  } catch { }
-  const custom = JSON.parse(localStorage.getItem("created_clubs") || "[]");
-  return { data: [...custom, ...mockClubsData] };
+  return { data: baseClubs };
 }
 
 export async function joinClub(clubId) {
-  try {
-    const res = await fetch(`${BASE}/clubs/${clubId}/join`, { method: "POST" });
-    if (res.ok) return await res.json();
-  } catch { }
   return { ok: true };
 }
 
 export async function leaveClub(clubId) {
-  try {
-    const res = await fetch(`${BASE}/clubs/${clubId}/leave`, { method: "POST" });
-    if (res.ok) return await res.json();
-  } catch { }
   return { ok: true };
 }
 
 export async function createClub(data) {
-  try {
-    const res = await fetch(`${BASE}/clubs`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-    if (res.ok) return await res.json();
-  } catch { }
   return {
-    ...data, id: String(Date.now()), icon: data.icon || "⭐",
-    color: "#7c5cfc", members: 1, events: 0,
-    head: data.head || { name: "You", email: "you@org.com" },
+    ...data,
+    id: String(Date.now()),
+    icon: data.icon || "⭐",
+    color: "#7c5cfc",
+    members: 1,
+    events: 0,
+    head: data.head || { name: "You", email: "you@clubops.ai" },
   };
 }
 
 export async function getClubMembers(clubId) {
   try {
-    const res = await fetch(`${BASE}/clubs/${clubId}/members`);
-    if (res.ok) return await res.json();
-  } catch { }
-  return { data: [] };
+    const vols = await dev1Service.getVolunteers();
+    const members = Array.isArray(vols) ? vols : Array.isArray(vols?.data) ? vols.data : [];
+    return { data: members };
+  } catch {
+    return { data: [] };
+  }
 }
 
 export async function getClubEvents(clubId) {
   try {
-    const res = await fetch(`${BASE}/clubs/${clubId}/events`);
-    if (res.ok) return await res.json();
-  } catch { }
-  return { data: [] };
+    const events = await dev2Service.getEvents();
+    const list = Array.isArray(events) ? events : Array.isArray(events?.data) ? events.data : [];
+    return { data: list };
+  } catch {
+    return { data: [] };
+  }
 }
 
 export async function getClub(clubId) {
-  try {
-    const res = await fetch(`${BASE}/clubs/${clubId}`);
-    if (res.ok) return await res.json();
-  } catch { }
-  const custom = JSON.parse(localStorage.getItem("created_clubs") || "[]");
-  const allClubs = [...custom, ...mockClubsData];
-  const club = allClubs.find((c) => String(c.id) === String(clubId));
+  const club = baseClubs.find((c) => String(c.id) === String(clubId));
   if (club) return { data: club };
   const cu = JSON.parse(localStorage.getItem("currentUser") || "{}");
-  return { data: { id: clubId, name: cu.activeClubName || "Active Club", icon: cu.activeClubIcon || "🏛️", members: cu.members || 1, events: 2, description: "Active club workspace" } };
+  return {
+    data: {
+      id: clubId,
+      name: cu.activeClubName || "Active Club",
+      icon: cu.activeClubIcon || "🏛️",
+      members: 12,
+      events: 3,
+      description: "Active club workspace",
+    },
+  };
 }
 
 export async function createClubEvent(clubId, eventData) {
   try {
-    const res = await fetch(`${BASE}/clubs/${clubId}/events`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(eventData),
+    const startDate = eventData.date || new Date().toISOString();
+    const endDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    const res = await dev2Service.createEvent({
+      name: eventData.title || eventData.name,
+      startDate,
+      endDate,
     });
-    if (res.ok) return await res.json();
-  } catch { }
-  return { ok: true };
+    return { data: res };
+  } catch {
+    return { ok: true };
+  }
 }
 
 export const clubService = { getClubs, joinClub, leaveClub, createClub, getClubMembers, getClubEvents, getClub, createClubEvent };

@@ -1,16 +1,20 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Check, Plus, RefreshCw } from 'lucide-react'
 import { dev1Service } from '../../services/dev1Service'
 
-export function ExtractedActions({ actions: providedActions = [] }) {
-  const [actions, setActions] = useState(providedActions)
+const DEFAULT_ACTIONS = []
+
+export function ExtractedActions({ actions: providedActions = DEFAULT_ACTIONS }) {
+  const [actions, setActions] = useState(providedActions || DEFAULT_ACTIONS)
   const [loading, setLoading] = useState(false)
   const [syncedIds, setSyncedIds] = useState(new Set())
 
-  React.useEffect(() => {
-    setActions(providedActions)
-    setSyncedIds(new Set())
-  }, [providedActions])
+  useEffect(() => {
+    if (providedActions && Array.isArray(providedActions)) {
+      setActions(providedActions)
+      setSyncedIds(new Set())
+    }
+  }, [providedActions?.length, JSON.stringify(providedActions)])
 
   const handleSync = async () => {
     setLoading(true)
@@ -30,31 +34,35 @@ export function ExtractedActions({ actions: providedActions = [] }) {
           <h4 className="text-sm font-semibold text-fg">Extracted Actions</h4>
           <p className="text-[11px] text-muted">{actions.length} items parsed</p>
         </div>
-        <button onClick={handleSync} disabled={loading || syncedIds.size === actions.length}
+        <button onClick={handleSync} disabled={loading || actions.length === 0 || syncedIds.size === actions.length}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
             loading ? 'bg-accent/20 text-accent cursor-wait' :
-            syncedIds.size === actions.length ? 'bg-green/15 text-green cursor-default' :
+            syncedIds.size === actions.length && actions.length > 0 ? 'bg-green/15 text-green cursor-default' :
             'bg-accent hover:bg-accentHover text-white'
           }`}>
-          {loading ? <RefreshCw size={13} className="animate-spin" /> : syncedIds.size === actions.length ? <Check size={13} /> : <Plus size={13} />}
-          {loading ? 'Syncing...' : syncedIds.size === actions.length ? 'All Synced' : 'Sync to Tasks'}
+          {loading ? <RefreshCw size={13} className="animate-spin" /> : syncedIds.size === actions.length && actions.length > 0 ? <Check size={13} /> : <Plus size={13} />}
+          {loading ? 'Syncing...' : syncedIds.size === actions.length && actions.length > 0 ? 'All Synced' : 'Sync to Tasks'}
         </button>
       </div>
       <div className="divide-y divide-border">
-        {actions.map((action) => {
-          const synced = syncedIds.has(action.id)
-          return (
-            <div key={action.id} className="flex items-center gap-3 p-3.5 hover:bg-card/50 transition-colors">
-              <div className={`w-5 h-5 rounded-md border flex items-center justify-center shrink-0 transition-colors ${synced ? 'bg-green border-green' : 'border-border'}`}>
-                {synced && <Check size={12} className="text-white" />}
+        {actions.length === 0 ? (
+          <p className="p-4 text-xs text-muted text-center">No action items extracted yet. Process a meeting transcript to generate actions.</p>
+        ) : (
+          actions.map((action) => {
+            const synced = syncedIds.has(action.id)
+            return (
+              <div key={action.id} className="flex items-center gap-3 p-3.5 hover:bg-card/50 transition-colors">
+                <div className={`w-5 h-5 rounded-md border flex items-center justify-center shrink-0 transition-colors ${synced ? 'bg-green border-green' : 'border-border'}`}>
+                  {synced && <Check size={12} className="text-white" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm ${synced ? 'text-muted line-through' : 'text-fg'}`}>{action.text}</p>
+                  <p className="text-[11px] text-muted">{action.owner} · {action.priority} priority</p>
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className={`text-sm ${synced ? 'text-muted line-through' : 'text-fg'}`}>{action.text}</p>
-                <p className="text-[11px] text-muted">{action.owner} · {action.priority} priority</p>
-              </div>
-            </div>
-          )
-        })}
+            )
+          })
+        )}
       </div>
     </div>
   )

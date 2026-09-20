@@ -8,6 +8,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
+    "seed": "node scripts/seedDevData.js",
     "seed:test-users": "node scripts/seedTestUsers.js"
   },
   "engines": {
